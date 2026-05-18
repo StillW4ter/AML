@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Acton AML/CTF Workbench</title>
+    <title>აქტონ AML/CTF სამუშაო სივრცე</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -12,13 +12,13 @@
         <div class="brand">
           <div class="mark">A</div>
           <div>
-            <strong>Acton AML</strong>
-            <span>Insurance broker module</span>
+            <strong>აქტონ AML</strong>
+            <span>სადაზღვევო ბროკერის მოდული</span>
           </div>
         </div>
 
         <label class="role-picker">
-          <span>Employee role</span>
+          <span>თანამშრომლის როლი</span>
           <select id="roleSelect">
             <option value="operator">ოპერატორი / გამყიდველი</option>
             <option value="officer" selected>AML ოფიცერი</option>
@@ -28,24 +28,24 @@
           </select>
         </label>
 
-        <nav id="nav" class="nav" aria-label="Main navigation"></nav>
+        <nav id="nav" class="nav" aria-label="მთავარი ნავიგაცია"></nav>
 
         <div class="integration-card">
-          <span>03:00 batch window</span>
-          <strong id="integrationHealth">All feeds online</strong>
-          <small>UN · EU · OFAC · HM Treasury · FMS · PEP</small>
+          <span>03:00 პერიოდული სკრინინგი</span>
+          <strong id="integrationHealth">ყველა წყარო აქტიურია</strong>
+          <small>UN · EU · OFAC · UK HMT · ფმს · PEP</small>
         </div>
       </aside>
 
       <main>
         <header class="topbar">
           <div>
-            <p class="eyebrow">AML/CTF module · შპს „აქტონ ინშურანს ბროკერი“</p>
-            <h1 id="pageTitle">AML Dashboard</h1>
+            <p class="eyebrow">AML/CTF მოდული · შპს „აქტონ ინშურანს ბროკერი“</p>
+            <h1 id="pageTitle">AML მართვის პანელი</h1>
           </div>
           <div class="top-actions">
-            <button id="seedData" class="secondary" type="button">Seed demo</button>
-            <button id="runScreening" class="primary" type="button">Run screening</button>
+            <button id="seedData" class="secondary" type="button">დემო მონაცემები</button>
+            <button id="runScreening" class="primary" type="button">სკრინინგის გაშვება</button>
           </div>
         </header>
 
@@ -65,7 +65,7 @@
 
     <dialog id="decisionDialog">
       <form method="dialog" class="dialog-card">
-        <h2 id="decisionTitle">Decision</h2>
+        <h2 id="decisionTitle">გადაწყვეტილება</h2>
         <p id="decisionHelp"></p>
         <label class="field full">
           <span>სავალდებულო კომენტარი</span>
@@ -76,8 +76,8 @@
           <input id="decisionFiles" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" />
         </label>
         <div class="dialog-actions">
-          <button value="cancel" class="secondary" type="submit">Cancel</button>
-          <button id="confirmDecision" value="confirm" class="primary" type="submit">Confirm</button>
+          <button value="cancel" class="secondary" type="submit">გაუქმება</button>
+          <button id="confirmDecision" value="confirm" class="primary" type="submit">დადასტურება</button>
         </div>
       </form>
     </dialog>

@@ -1,4 +1,4 @@
-const STORAGE = "acton_aml_workbench_v1";
+const STORAGE = "acton_aml_workbench_v2";
 
 const roles = {
   operator: {
@@ -24,21 +24,111 @@ const roles = {
 };
 
 const navItems = [
-  { id: "dashboard", title: "Dashboard" },
-  { id: "onboarding", title: "Onboarding" },
-  { id: "alerts", title: "Alert Review" },
-  { id: "whitelist", title: "White List" },
-  { id: "monitoring", title: "Monitoring" },
-  { id: "str", title: "STR" },
-  { id: "audit", title: "Audit Log" },
-  { id: "reports", title: "Reports" },
-  { id: "config", title: "Config" }
+  { id: "dashboard", title: "მართვის პანელი" },
+  { id: "onboarding", title: "კლიენტის რეგისტრაცია" },
+  { id: "alerts", title: "ალერტების განხილვა" },
+  { id: "whitelist", title: "თეთრი სია" },
+  { id: "monitoring", title: "მონიტორინგი" },
+  { id: "str", title: "STR ანგარიშები" },
+  { id: "audit", title: "აუდიტის ჟურნალი" },
+  { id: "reports", title: "ანგარიშგებები" },
+  { id: "config", title: "კონფიგურაცია" }
 ];
 
 const countries = ["GE", "US", "GB", "DE", "FR", "TR", "RU", "IR", "SY", "PA", "VG", "KY"];
 const highRiskCountries = ["RU", "IR", "SY"];
 const offshoreCountries = ["PA", "VG", "KY"];
-const sources = ["FMS Local", "UN Consolidated", "EU Sanctions", "OFAC SDN", "UK HMT", "PEP DB"];
+const sources = ["ფმს ლოკალური", "UN გაერთიანებული სია", "EU სანქციები", "OFAC SDN", "UK HMT", "PEP ბაზა"];
+
+const labels = {
+  countries: { GE: "საქართველო", US: "აშშ", GB: "დიდი ბრიტანეთი", DE: "გერმანია", FR: "საფრანგეთი", TR: "თურქეთი", RU: "რუსეთი", IR: "ირანი", SY: "სირია", PA: "პანამა", VG: "ბრიტანეთის ვირჯინიის კუნძულები", KY: "კაიმანის კუნძულები" },
+  risk: { Low: "დაბალი", Medium: "საშუალო", High: "მაღალი" },
+  status: {
+    Draft: "პროექტი",
+    Active: "აქტიური",
+    Inactive: "არააქტიური",
+    Expired: "ვადაგასული",
+    Lost: "დაკარგული",
+    Open: "ღია",
+    "In Review": "მუშავდება",
+    "Soft Alert": "რბილი ალერტი",
+    Escalated: "ესკალირებული",
+    "Confirmed Match": "დადასტურებული დამთხვევა",
+    "False Positive": "ცრუ ალარმი",
+    "Below threshold": "ზღვარს ქვემოთ",
+    "Temporary delay": "დროებითი შეფერხება",
+    "EDD Required": "EDD საჭიროა",
+    Blocked: "დაბლოკილი"
+  },
+  values: {
+    physical: "ფიზიკური პირი",
+    legal: "იურიდიული პირი",
+    Male: "მამრობითი",
+    Female: "მდედრობითი",
+    "ID Card": "პირადობის მოწმობა",
+    "Residence Permit": "ბინადრობის მოწმობა",
+    "Temporary Residence": "დროებითი ბინადრობა",
+    Passport: "პასპორტი",
+    LLC: "შპს",
+    JSC: "სს",
+    IE: "ინდ. მეწარმე",
+    Branch: "ფილიალი",
+    NPO: "არასამეწარმეო",
+    single: "ერთი დონის სტრუქტურა",
+    "multi-level": "მრავალდონიანი სტრუქტურა",
+    "auto-tpl": "ავტო TPL",
+    health: "ჯანმრთელობის დაზღვევა",
+    property: "ქონების დაზღვევა",
+    "car-ear": "CAR/EAR",
+    cargo: "გადაზიდვების დაზღვევა",
+    "life-investment": "სიცოცხლე / საინვესტიციო კომპონენტი",
+    employed: "დასაქმებული",
+    "business-owner": "ბიზნესის მფლობელი",
+    "individual-entrepreneur": "ინდ. მეწარმე",
+    "self-employed": "თვითდასაქმებული",
+    unemployed: "უმუშევარი",
+    student: "სტუდენტი",
+    pensioner: "პენსიონერი",
+    "low-risk": "დაბალი რისკის სფერო",
+    ordinary: "ჩვეულებრივი ბიზნესი",
+    "cash-intensive": "ნაღდზე ინტენსიური საქმიანობა",
+    crypto: "კრიპტო / ვირტუალური აქტივები",
+    gambling: "აზარტული თამაშები",
+    weapons: "იარაღი",
+    "precious-metals": "ძვირფასი მეტალები",
+    salary: "ხელფასი",
+    pension: "პენსია",
+    dividend: "დივიდენდი",
+    "business-income": "ბიზნეს-შემოსავალი",
+    rent: "იჯარა",
+    investment: "საინვესტიციო შემოსავალი",
+    inheritance: "მემკვიდრეობა",
+    gift: "საჩუქარი",
+    other: "სხვა",
+    No: "არა",
+    "Local PEP": "ადგილობრივი PEP",
+    "Foreign PEP": "უცხო ქვეყნის PEP",
+    "International PEP": "საერთაშორისო ორგანიზაციის PEP",
+    RCA: "RCA"
+  },
+  alertType: { Sanction: "სანქცია", PEP: "PEP", RCA: "RCA" },
+  mode: { Initial: "საწყისი", Batch: "პერიოდული", Ongoing: "მიმდინარე" },
+  action: {
+    Login: "შესვლა",
+    Seed: "დემო მონაცემები",
+    Screening: "სკრინინგი",
+    "Batch Screening": "პერიოდული სკრინინგი",
+    Decision: "გადაწყვეტილება",
+    Create: "შექმნა",
+    "Create + Initial Screening": "შექმნა + საწყისი სკრინინგი",
+    "Create Draft": "პროექტის შექმნა",
+    Update: "განახლება",
+    Lookup: "რეესტრის ძიება",
+    "Role switch": "როლის შეცვლა",
+    "Validation failed": "ვალიდაცია ვერ გაიარა"
+  },
+  object: { Session: "სესია", System: "სისტემა", Client: "კლიენტი", Alert: "ალერტი", STR: "STR", Config: "კონფიგურაცია", Registry: "რეესტრი" }
+};
 
 const watchlist = [
   {
@@ -50,29 +140,29 @@ const watchlist = [
     personalId: "01001001001",
     birthDate: "1988-04-12",
     country: "GE",
-    reason: "Exact Georgian personal ID and birth date match"
+      reason: "ქართული პირადი ნომერი და დაბადების თარიღი სრულად დაემთხვა"
   },
   {
     id: "PEP-22017",
-    source: "PEP DB",
+    source: "PEP ბაზა",
     type: "PEP",
     firstName: "Nika",
     lastName: "Kapanadze",
     personalId: "",
     birthDate: "1976-11-03",
     country: "GB",
-    reason: "Foreign politically exposed person"
+      reason: "უცხო ქვეყნის პოლიტიკურად აქტიური პირი"
   },
   {
     id: "UN-55120",
-    source: "UN Consolidated",
+    source: "UN გაერთიანებული სია",
     type: "RCA",
     firstName: "მარიამ",
     lastName: "ლომიძე",
     personalId: "09009009009",
     birthDate: "1991-01-09",
     country: "GE",
-    reason: "RCA record"
+      reason: "RCA ჩანაწერი"
   }
 ];
 
@@ -88,17 +178,17 @@ const defaults = {
   monitoring: [
     {
       id: "MON-1001",
-      clientName: "Nino LLC",
-      type: "Premium deviation",
+      clientName: "ნინო შპს",
+      type: "პრემიის გადახრა",
       status: "Soft Alert",
-      description: "Actual annual premium exceeds expected KYC range by 28%."
+      description: "ფაქტობრივი წლიური პრემია KYC-ში მითითებულ დიაპაზონს 28%-ით აჭარბებს."
     },
     {
       id: "MON-1002",
-      clientName: "Giorgi Beridze",
-      type: "3+ policies",
+      clientName: "გიორგი ბერიძე",
+      type: "3+ პოლისი",
       status: "Soft Alert",
-      description: "Three new policies issued in one calendar month."
+      description: "ერთ კალენდარულ თვეში გაიცა სამი ახალი პოლისი."
     }
   ],
   config: {
@@ -166,6 +256,39 @@ function esc(value) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function label(value, group = "values") {
+  return labels[group]?.[value] || value || "-";
+}
+
+function riskText(risk) {
+  return `${label(risk.level, "risk")} · ${risk.score} · ${risk.dueDiligence}`;
+}
+
+function reasonText(reason) {
+  const map = {
+    "Low-risk jurisdiction": "დაბალი რისკის იურისდიქცია",
+    "FATF / high-risk jurisdiction": "FATF / მაღალი რისკის იურისდიქცია",
+    "Other jurisdiction": "სხვა იურისდიქცია",
+    "Second citizenship high risk": "მეორე მოქალაქეობა მაღალი რისკის ქვეყანაში",
+    "Foreign/international PEP": "უცხო ქვეყნის / საერთაშორისო PEP",
+    "Local PEP": "ადგილობრივი PEP",
+    "PEP-related RCA": "PEP-თან დაკავშირებული RCA",
+    "Risky business sector": "მაღალი რისკის საქმიანობის სფერო",
+    "Investment-linked product": "საინვესტიციო კომპონენტის პროდუქტი",
+    "Moderate-risk product": "საშუალო რისკის პროდუქტი",
+    "Premium 50k-200k": "პრემია 50k-200k",
+    "Premium 200k-1m": "პრემია 200k-1m",
+    "Premium above 1m": "პრემია 1m-ზე მეტი",
+    "Business/rent/investment income": "ბიზნეს / იჯარა / საინვესტიციო შემოსავალი",
+    "Non-standard income source": "არასტანდარტული შემოსავლის წყარო",
+    "Multi-level UBO structure": "მრავალდონიანი UBO სტრუქტურა",
+    "UBO offshore": "UBO ოფშორულ იურისდიქციაში",
+    "Blocking sanctions/PEP screening match": "სანქცია/PEP სკრინინგის ბლოკირებადი დამთხვევა",
+    "AML officer confirmed true match": "AML ოფიცერმა დაადასტურა ნამდვილი დამთხვევა"
+  };
+  return map[reason] || reason;
 }
 
 function normalize(value) {
@@ -258,7 +381,7 @@ function validateClient(client) {
     if (client.registrationCountry === "GE" && !/^\d{9}$/.test(client.taxId || "")) errors.push("საქართველოს იურიდიული პირის კოდი უნდა იყოს 9 ციფრი.");
     if (!client.legalForm) errors.push("სამართლებრივი ფორმა სავალდებულოა.");
     if (!client.directorName) errors.push("დირექტორი/წარმომადგენელი სავალდებულოა.");
-    if (!client.uboName && client.uboUnknown !== "on") errors.push("UBO ან Senior Managing Official სავალდებულოა.");
+    if (!client.uboName && client.uboUnknown !== "on") errors.push("UBO ან უმაღლესი მმართველი პირი სავალდებულოა.");
   }
   if (!client.productType) errors.push("პროდუქტის ტიპი სავალდებულოა.");
   if (!client.expectedPremium) errors.push("მოსალოდნელი წლიური პრემია სავალდებულოა.");
@@ -289,7 +412,7 @@ function screenClient(client, mode = "Initial") {
         status: blocked ? "Open" : soft ? "Soft Alert" : "Below threshold",
         priority: blocked ? "High" : "Medium",
         mode,
-        assignedTo: "AML Officer 1",
+        assignedTo: "AML ოფიცერი 1",
         createdAt: new Date().toISOString(),
         dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         clientSnapshot: client
@@ -303,7 +426,7 @@ function screenClient(client, mode = "Initial") {
     client.screeningBlock = true;
     client.risk = scoreClient(client);
   }
-  audit("Screening", "Client", `${client.clientType} ${client.id}: ${hits.length} hits`);
+  audit("Screening", "Client", `${label(client.clientType)} ${client.id}: ${hits.length} დამთხვევა`);
   saveState();
   return hits;
 }
@@ -335,12 +458,12 @@ function seedDemo() {
     {
       id: "CLI-2001",
       clientType: "legal",
-      organizationName: "Nino Holdings LLC",
+      organizationName: "ნინო ჰოლდინგი შპს",
       taxId: "404123456",
       legalForm: "LLC",
       registrationCountry: "GE",
-      directorName: "Nino Kapanadze",
-      uboName: "Nika Kapanadze",
+      directorName: "ნინო კაპანაძე",
+      uboName: "ნიკა კაპანაძე",
       uboShare: "75",
       uboCountry: "GB",
       uboStructure: "multi-level",
@@ -356,7 +479,7 @@ function seedDemo() {
   state.alerts = [];
   state.whitelist = [];
   state.str = [];
-  audit("Seed", "System", "Demo data loaded");
+  audit("Seed", "System", "დემო მონაცემები ჩაიტვირთა");
   state.clients.forEach((client) => screenClient(client, "Initial"));
   saveState();
   render();
@@ -367,7 +490,7 @@ function renderNav() {
     .map((item) => {
       const locked = !can(item.id);
       return `<button class="${state.activeView === item.id ? "active" : ""} ${locked ? "locked" : ""}" data-view="${item.id}" type="button">
-        ${item.title}<span>${locked ? "Locked" : ""}</span>
+        ${item.title}<span>${locked ? "დაბლოკილია" : ""}</span>
       </button>`;
     })
     .join("");
@@ -380,7 +503,7 @@ function renderAccessNotice() {
     return;
   }
   accessNotice.classList.remove("hidden");
-  accessNotice.textContent = `${roles[state.role].label}: restricted views hidden by RBAC: ${restricted.join(", ")}.`;
+  accessNotice.textContent = `${roles[state.role].label}: როლური უფლებებით შეზღუდული გვერდები: ${restricted.join(", ")}.`;
 }
 
 function renderDashboard() {
@@ -390,21 +513,21 @@ function renderDashboard() {
   const avg = openAlerts.length ? "5.4h" : "0h";
   return `
     <div class="kpi-grid">
-      ${kpi("Open alerts", openAlerts.length)}
-      ${kpi("Avg review time", avg)}
-      ${kpi("High-risk clients", highRisk.length)}
-      ${kpi("Overdue SLA", overdue.length)}
+      ${kpi("ღია ალერტები", openAlerts.length)}
+      ${kpi("განხილვის საშუალო დრო", avg)}
+      ${kpi("მაღალი რისკის კლიენტები", highRisk.length)}
+      ${kpi("SLA ვადაგადაცილებული", overdue.length)}
     </div>
     <div class="grid-2">
       <section class="panel">
-        <div class="panel-head"><div><h2>Alert trend</h2><p>Last 30 days sample trend</p></div></div>
+        <div class="panel-head"><div><h2>ალერტების ტენდენცია</h2><p>ბოლო 30 დღის სანიმუშო დინამიკა</p></div></div>
         <div class="score-box">
-          ${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => `<div><strong>${d}</strong><div class="score-line"><span style="width:${25 + i * 9}%"></span></div></div>`).join("")}
+          ${["ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ", "კვი"].map((d, i) => `<div><strong>${d}</strong><div class="score-line"><span style="width:${25 + i * 9}%"></span></div></div>`).join("")}
         </div>
       </section>
       <section class="panel">
-        <div class="panel-head"><div><h2>Risk structure</h2><p>Automatic scoring result</p></div></div>
-        ${state.clients.map((client) => clientRow(client)).join("") || `<div class="empty">No clients yet. Seed demo or create one.</div>`}
+        <div class="panel-head"><div><h2>რისკის სტრუქტურა</h2><p>ავტომატური სქორინგის შედეგი</p></div></div>
+        ${state.clients.map((client) => clientRow(client)).join("") || `<div class="empty">კლიენტები ჯერ არ არის. ჩატვირთეთ დემო მონაცემები ან შექმენით ახალი კლიენტი.</div>`}
       </section>
     </div>`;
 }
@@ -419,7 +542,7 @@ function clientName(client) {
 
 function clientRow(client) {
   const risk = scoreClient(client);
-  return `<div class="kv"><span>${esc(clientName(client))}</span><strong class="risk-${risk.level.toLowerCase()}">${risk.level} · ${risk.score} · ${risk.dueDiligence}</strong></div>`;
+  return `<div class="kv"><span>${esc(clientName(client))}</span><strong class="risk-${risk.level.toLowerCase()}">${riskText(risk)}</strong></div>`;
 }
 
 function renderOnboarding() {
@@ -427,8 +550,8 @@ function renderOnboarding() {
     <form id="clientForm" class="client-form">
       <div class="panel-head">
         <div>
-          <h2>Client onboarding</h2>
-          <p>Physical/legal registration, KYC, UBO, initial screening, risk scoring.</p>
+          <h2>კლიენტის რეგისტრაცია</h2>
+          <p>ფიზიკური/იურიდიული პირი, KYC, UBO, საწყისი სკრინინგი და რისკის სქორინგი.</p>
         </div>
         <div class="segmented">
           <label class="check-pill"><input type="radio" name="clientType" value="physical" checked /> ფიზიკური</label>
@@ -441,16 +564,16 @@ function renderOnboarding() {
         <div id="validationBox" class="score-box"></div>
       </div>
       <div class="actions form-section">
-        <button class="secondary" id="registryLookup" type="button">Registry lookup</button>
-        <button class="secondary" id="saveDraft" type="button">Save draft</button>
-        <button class="primary" id="completeOnboarding" type="button">Initial screening + save</button>
+        <button class="secondary" id="registryLookup" type="button">რეესტრში მოძიება</button>
+        <button class="secondary" id="saveDraft" type="button">პროექტის შენახვა</button>
+        <button class="primary" id="completeOnboarding" type="button">საწყისი სკრინინგი + შენახვა</button>
       </div>
     </form>`;
 }
 
 function formField(name, label, type = "text", options = [], extra = "") {
   if (type === "select") {
-    return `<label class="field ${extra}"><span>${label}</span><select name="${name}">${options.map((o) => `<option value="${o}">${o || "None"}</option>`).join("")}</select></label>`;
+    return `<label class="field ${extra}"><span>${label}</span><select name="${name}">${options.map((o) => `<option value="${o}">${o ? esc(labels.countries[o] || labels.values[o] || o) : "აირჩიეთ"}</option>`).join("")}</select></label>`;
   }
   if (type === "file") return `<label class="field ${extra}"><span>${label}</span><input name="${name}" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" /></label>`;
   return `<label class="field ${extra}"><span>${label}</span><input name="${name}" type="${type}" /></label>`;
@@ -472,8 +595,8 @@ function physicalForm() {
       ${formField("phone", "საკონტაქტო ტელეფონი")}
       ${formField("email", "ელ. ფოსტა", "email")}
       ${formField("taxResidence", "საგადასახადო რეზიდენტობა", "select", countries)}
-      ${formField("tin", "TIN")}
-      ${formField("idScan", "პასპორტი/ID სკან-ასლი", "file", [], "full")}
+      ${formField("tin", "საგადასახადო ნომერი (TIN)")}
+      ${formField("idScan", "პასპორტის/პირადობის ასლი", "file", [], "full")}
     </div></section>`;
 }
 
@@ -491,13 +614,13 @@ function legalForm() {
       ${formField("contactEmail", "საკონტაქტო ელ. ფოსტა", "email")}
       ${formField("licenseNumber", "ლიცენზიის ნომერი")}
     </div></section>
-    <section class="form-section"><h3>4.2 UBO / Beneficial ownership</h3><div class="fields">
+    <section class="form-section"><h3>4.2 UBO / ბენეფიციარი მესაკუთრე</h3><div class="fields">
       ${formField("uboName", "UBO სახელი/გვარი")}
       ${formField("uboShare", "წილი %", "number")}
       ${formField("uboCountry", "UBO ქვეყანა", "select", countries)}
       ${formField("uboStructure", "ფლობის სტრუქტურა", "select", ["single", "multi-level"])}
-      <label class="check-pill"><input name="uboUnknown" type="checkbox" /> UBO ვერ დგინდება — Senior Managing Official</label>
-      ${formField("ownershipChain", "Ownership chain", "text", [], "full")}
+      <label class="check-pill"><input name="uboUnknown" type="checkbox" /> UBO ვერ დგინდება — უმაღლესი მმართველი პირი</label>
+      ${formField("ownershipChain", "ფლობის ჯაჭვი", "text", [], "full")}
     </div></section>`;
 }
 
@@ -533,13 +656,13 @@ function updateLiveForm() {
   const risk = scoreClient(data);
   const errors = validateClient(data);
   document.querySelector("#liveScore").innerHTML = `
-    <h3>Risk scoring</h3>
-    <strong class="risk-${risk.level.toLowerCase()}">${risk.level} · ${risk.score} · ${risk.dueDiligence}</strong>
+    <h3>რისკის სქორინგი</h3>
+    <strong class="risk-${risk.level.toLowerCase()}">${riskText(risk)}</strong>
     <div class="score-line"><span style="width:${Math.min(risk.score, 100)}%"></span></div>
-    ${risk.reasons.map((r) => `<div class="kv"><span>+${r.points}</span><strong>${esc(r.reason)}</strong></div>`).join("") || `<p>No risk factors yet.</p>`}`;
+    ${risk.reasons.map((r) => `<div class="kv"><span>+${r.points}</span><strong>${esc(reasonText(r.reason))}</strong></div>`).join("") || `<p>რისკ-ფაქტორი ჯერ არ დაფიქსირებულა.</p>`}`;
   document.querySelector("#validationBox").innerHTML = `
-    <h3>Validation</h3>
-    ${errors.length ? errors.map((e) => `<div class="kv"><span>Issue</span><strong class="risk-high">${esc(e)}</strong></div>`).join("") : `<strong class="risk-low">Ready for initial screening</strong>`}`;
+    <h3>ვალიდაცია</h3>
+    ${errors.length ? errors.map((e) => `<div class="kv"><span>შეცდომა</span><strong class="risk-high">${esc(e)}</strong></div>`).join("") : `<strong class="risk-low">მზად არის საწყისი სკრინინგისთვის</strong>`}`;
 }
 
 function renderAlerts() {
@@ -549,53 +672,53 @@ function renderAlerts() {
   const selected = alerts.find((a) => a.id === selectedAlertId);
   return `
     <div class="panel-head">
-      <div><h2>8. AML მართვის პანელი და ალერტები</h2><p>Default sort: lower match % first.</p></div>
-      <div class="actions"><button class="secondary" data-bulk="review" type="button">Bulk In Review</button></div>
+      <div><h2>8. AML მართვის პანელი და ალერტები</h2><p>დალაგებულია დამთხვევის პროცენტულობის ზრდადობით.</p></div>
+      <div class="actions"><button class="secondary" data-bulk="review" type="button">მონიშნულების განხილვაში გადატანა</button></div>
     </div>
     <div class="alert-workbench">
-      <div class="alert-list">${alerts.map(alertButton).join("") || `<div class="empty">No alerts.</div>`}</div>
-      <div class="panel">${selected ? alertDetail(selected) : `<div class="empty">Select an alert.</div>`}</div>
+      <div class="alert-list">${alerts.map(alertButton).join("") || `<div class="empty">ალერტები არ არის.</div>`}</div>
+      <div class="panel">${selected ? alertDetail(selected) : `<div class="empty">აირჩიეთ ალერტი.</div>`}</div>
     </div>`;
 }
 
 function alertButton(alert) {
   return `<button class="alert-card ${alert.id === selectedAlertId ? "active" : ""}" data-alert="${alert.id}" type="button">
     <strong>${esc(alert.clientName)}</strong>
-    <p>${esc(alert.type)} · ${esc(alert.source)} · ${alert.match}%</p>
-    <span class="badge ${alert.priority === "High" ? "high" : "medium"}">${esc(alert.status)}</span>
+    <p>${esc(label(alert.type, "alertType"))} · ${esc(alert.source)} · ${alert.match}%</p>
+    <span class="badge ${alert.priority === "High" ? "high" : "medium"}">${esc(label(alert.status, "status"))}</span>
   </button>`;
 }
 
 function alertDetail(alert) {
   const risk = scoreClient(alert.clientSnapshot);
   return `
-    <div class="panel-head"><div><h2>${esc(alert.clientName)}</h2><p>${esc(alert.mode)} screening · ${esc(alert.assignedTo)}</p></div><span class="badge high">${alert.match}%</span></div>
+    <div class="panel-head"><div><h2>${esc(alert.clientName)}</h2><p>${esc(label(alert.mode, "mode"))} სკრინინგი · ${esc(alert.assignedTo)}</p></div><span class="badge high">${alert.match}%</span></div>
     <div class="split-card">
       <div class="side-panel">
         <h3>ჩვენი კლიენტი</h3>
-        ${kv("Client ID", alert.clientId)}
-        ${kv("Type", alert.clientSnapshot.clientType)}
-        ${kv("Risk", `${risk.level} · ${risk.score} · ${risk.dueDiligence}`)}
-        ${kv("Status", alert.clientSnapshot.status)}
-        ${kv("KYC", `${alert.clientSnapshot.productType || ""} / ${alert.clientSnapshot.expectedPremium || ""}`)}
+        ${kv("კლიენტის ID", alert.clientId)}
+        ${kv("ტიპი", label(alert.clientSnapshot.clientType))}
+        ${kv("რისკი", riskText(risk))}
+        ${kv("სტატუსი", label(alert.clientSnapshot.status, "status"))}
+        ${kv("KYC", `${label(alert.clientSnapshot.productType)} / ${alert.clientSnapshot.expectedPremium || "-"}`)}
       </div>
       <div class="side-panel">
         <h3>სიის ჩანაწერი</h3>
-        ${kv("Entity ID", alert.entity.id)}
-        ${kv("Name", `${alert.entity.firstName} ${alert.entity.lastName}`)}
-        ${kv("Source", alert.source)}
-        ${kv("Type", alert.type)}
-        ${kv("Reason", alert.entity.reason)}
+        ${kv("ჩანაწერის ID", alert.entity.id)}
+        ${kv("სახელი", `${alert.entity.firstName} ${alert.entity.lastName}`)}
+        ${kv("წყარო", alert.source)}
+        ${kv("ტიპი", label(alert.type, "alertType"))}
+        ${kv("მიზეზი", alert.entity.reason)}
       </div>
     </div>
     <div class="score-box" style="margin-top:14px">
-      <h3>Decision</h3>
-      <p>Comment is mandatory, minimum 20 characters. Evidence files: PDF/JPG/PNG, max 10 MB each in production.</p>
+      <h3>გადაწყვეტილება</h3>
+      <p>კომენტარი სავალდებულოა, მინიმუმ 20 სიმბოლო. მტკიცებულების ფაილები: PDF/JPG/PNG, production-ში თითო ფაილი მაქს. 10 MB.</p>
       <div class="decision-row">
-        <button class="danger" data-decision="confirm" type="button">კი — Confirmed Match</button>
-        <button class="primary" data-decision="falsePositive" type="button">არა — False Positive</button>
-        <button class="secondary" data-decision="escalate" type="button">Escalate</button>
-        <button class="secondary" data-str="${alert.id}" type="button">Prepare STR</button>
+        <button class="danger" data-decision="confirm" type="button">კი — დადასტურებული დამთხვევა</button>
+        <button class="primary" data-decision="falsePositive" type="button">არა — ცრუ ალარმი</button>
+        <button class="secondary" data-decision="escalate" type="button">ესკალაცია</button>
+        <button class="secondary" data-str="${alert.id}" type="button">STR მომზადება</button>
       </div>
     </div>`;
 }
@@ -605,7 +728,7 @@ function kv(label, value) {
 }
 
 function renderTable(rows, columns) {
-  if (!rows.length) return `<div class="empty">No data.</div>`;
+  if (!rows.length) return `<div class="empty">მონაცემები არ არის.</div>`;
   return `<div class="table-card"><table><thead><tr>${columns.map((c) => `<th>${esc(c.label)}</th>`).join("")}</tr></thead><tbody>${rows
     .map((row) => `<tr>${columns.map((c) => `<td>${c.render ? c.render(row) : esc(row[c.key])}</td>`).join("")}</tr>`)
     .join("")}</tbody></table></div>`;
@@ -613,74 +736,74 @@ function renderTable(rows, columns) {
 
 function renderWhitelist() {
   return renderTable(state.whitelist, [
-    { label: "Client", key: "clientName" },
-    { label: "Entity", key: "entityId" },
-    { label: "Officer", key: "officer" },
-    { label: "Reason", key: "reason" },
-    { label: "Expires", key: "expiresAt" },
-    { label: "Status", key: "status", render: (r) => `<span class="badge">${esc(r.status)}</span>` }
+    { label: "კლიენტი", key: "clientName" },
+    { label: "სიის ჩანაწერი", key: "entityId" },
+    { label: "ოფიცერი", key: "officer" },
+    { label: "მიზეზი", key: "reason" },
+    { label: "ვადა", key: "expiresAt" },
+    { label: "სტატუსი", key: "status", render: (r) => `<span class="badge">${esc(label(r.status, "status"))}</span>` }
   ]);
 }
 
 function renderMonitoring() {
-  return `<section class="panel"><div class="panel-head"><div><h2>10. Ongoing Monitoring</h2><p>Behavior anomalies and re-classification.</p></div></div>${renderTable(state.monitoring, [
+  return `<section class="panel"><div class="panel-head"><div><h2>10. მუდმივი მონიტორინგი</h2><p>ქცევითი ანომალიები და რისკის ხელახალი კლასიფიკაცია.</p></div></div>${renderTable(state.monitoring, [
     { label: "ID", key: "id" },
-    { label: "Client", key: "clientName" },
-    { label: "Type", key: "type" },
-    { label: "Status", key: "status" },
-    { label: "Description", key: "description" }
+    { label: "კლიენტი", key: "clientName" },
+    { label: "ტიპი", key: "type" },
+    { label: "სტატუსი", key: "status", render: (r) => esc(label(r.status, "status")) },
+    { label: "აღწერა", key: "description" }
   ])}</section>`;
 }
 
 function renderStr() {
-  return `<section class="panel"><div class="panel-head"><div><h2>10.2 STR workspace</h2><p>Visible only to permitted AML/compliance/audit roles. Operators do not see STR facts.</p></div><button class="secondary" id="exportStr" type="button">Export XML/PDF mock</button></div>${renderTable(state.str, [
+  return `<section class="panel"><div class="panel-head"><div><h2>10.2 STR სამუშაო სივრცე</h2><p>ხილულია მხოლოდ შესაბამისი AML/კომპლაიანს/აუდიტის როლებისთვის. ოპერატორი STR-ის ფაქტს ვერ ხედავს.</p></div><button class="secondary" id="exportStr" type="button">XML/PDF ექსპორტის ნიმუში</button></div>${renderTable(state.str, [
     { label: "STR ID", key: "id" },
-    { label: "Client", key: "clientName" },
-    { label: "Reason", key: "reason" },
-    { label: "Deadline", key: "deadline" },
-    { label: "Status", key: "status" }
+    { label: "კლიენტი", key: "clientName" },
+    { label: "საფუძველი", key: "reason" },
+    { label: "ვადა", key: "deadline" },
+    { label: "სტატუსი", key: "status", render: (r) => esc(label(r.status, "status")) }
   ])}</section>`;
 }
 
 function renderAudit() {
   return renderTable(state.audit, [
-    { label: "UTC time", key: "at" },
-    { label: "User", key: "user" },
+    { label: "UTC დრო", key: "at" },
+    { label: "მომხმარებელი", key: "user" },
     { label: "IP", key: "ip" },
-    { label: "Action", key: "action" },
-    { label: "Object", key: "object" },
-    { label: "Detail", key: "detail" }
+    { label: "მოქმედება", key: "action", render: (r) => esc(label(r.action, "action")) },
+    { label: "ობიექტი", key: "object", render: (r) => esc(label(r.object, "object")) },
+    { label: "დეტალი", key: "detail" }
   ]);
 }
 
 function renderReports() {
   const riskCounts = ["Low", "Medium", "High"].map((level) => ({
-    level,
+    level: label(level, "risk"),
     count: state.clients.filter((client) => scoreClient(client).level === level).length
   }));
   return `<div class="grid-2">
-    <section class="panel"><div class="panel-head"><div><h2>12. Reports</h2><p>Daily, monthly, quarterly, annual AML reporting.</p></div></div>
+    <section class="panel"><div class="panel-head"><div><h2>12. ანგარიშგებები</h2><p>ყოველდღიური, ყოველთვიური, კვარტალური და წლიური AML ანგარიშგებები.</p></div></div>
       ${riskCounts.map((r) => kv(r.level, r.count)).join("")}
       <div class="actions form-section"><button class="secondary" type="button">PDF</button><button class="secondary" type="button">Excel</button><button class="secondary" type="button">CSV</button><button class="secondary" type="button">XML/JSON</button></div>
     </section>
-    <section class="panel"><h2>Acceptance checklist</h2><div class="timeline">
-      ${["Physical onboarding valid ID", "17-year-old blocked", "Sanctioned personal ID creates alert", "False positive whitelist suppresses batch", "Operator cannot see full alerts", "Audit log captures decisions"].map((item) => `<div class="timeline-item">${item}</div>`).join("")}
+    <section class="panel"><h2>მიღების კრიტერიუმების სია</h2><div class="timeline">
+      ${["ფიზიკური პირის რეგისტრაცია ვალიდური ID-ით", "17 წლის ასაკი იბლოკება", "სანქცირებული პირადი ნომერი ქმნის ალერტს", "ცრუ ალარმი თეთრ სიაში აღარ ფლაგდება", "ოპერატორი სრულ ალერტებს ვერ ხედავს", "აუდიტის ჟურნალი გადაწყვეტილებებს აფიქსირებს"].map((item) => `<div class="timeline-item">${item}</div>`).join("")}
     </div></section>
   </div>`;
 }
 
 function renderConfig() {
   return `<form id="configForm" class="panel">
-    <div class="panel-head"><div><h2>Admin configuration</h2><p>Threshold and risk review cycles. Changes are audit logged.</p></div></div>
+    <div class="panel-head"><div><h2>ადმინისტრატორის კონფიგურაცია</h2><p>დამთხვევის ზღვარი და რისკის გადახედვის ციკლები. ცვლილებები აუდიტის ჟურნალში ფიქსირდება.</p></div></div>
     <div class="fields">
-      ${configInput("threshold", "Match threshold %")}
-      ${configInput("lowMax", "Low risk max")}
-      ${configInput("mediumMax", "Medium risk max")}
-      ${configInput("sddMonths", "SDD review months")}
-      ${configInput("cddMonths", "CDD review months")}
-      ${configInput("eddMonths", "EDD review months")}
+      ${configInput("threshold", "დამთხვევის ზღვარი %")}
+      ${configInput("lowMax", "დაბალი რისკის მაქს. ქულა")}
+      ${configInput("mediumMax", "საშუალო რისკის მაქს. ქულა")}
+      ${configInput("sddMonths", "SDD გადახედვა თვეებში")}
+      ${configInput("cddMonths", "CDD გადახედვა თვეებში")}
+      ${configInput("eddMonths", "EDD გადახედვა თვეებში")}
     </div>
-    <div class="actions form-section"><button class="primary" id="saveConfig" type="button">Save config</button></div>
+    <div class="actions form-section"><button class="primary" id="saveConfig" type="button">კონფიგურაციის შენახვა</button></div>
   </form>`;
 }
 
@@ -723,8 +846,8 @@ function wireView() {
     document.querySelectorAll("input[name='clientType']").forEach((el) => el.addEventListener("change", repaint));
     repaint();
     document.querySelector("#registryLookup").addEventListener("click", () => {
-      audit("Lookup", "Registry", "Mock registry lookup requested");
-      alert("Mock registry lookup: integration unavailable, manual entry allowed with AML approval.");
+      audit("Lookup", "Registry", "რეესტრში სატესტო მოძიება");
+      alert("სატესტო რეესტრი: ინტეგრაცია ჯერ მიუწვდომელია, ხელით შევსება დაშვებულია AML-ის თანხმობით.");
     });
     document.querySelector("#saveDraft").addEventListener("click", () => saveClient(false));
     document.querySelector("#completeOnboarding").addEventListener("click", () => saveClient(true));
@@ -742,7 +865,7 @@ function saveClient(withScreening) {
   client.risk = scoreClient(client);
   client.status = withScreening ? (client.risk.level === "High" ? "EDD Required" : "Active") : "Draft";
   state.clients.unshift(client);
-  audit(withScreening ? "Create + Initial Screening" : "Create Draft", "Client", `${clientName(client)} ${client.risk.level}`);
+  audit(withScreening ? "Create + Initial Screening" : "Create Draft", "Client", `${clientName(client)} ${label(client.risk.level, "risk")}`);
   if (withScreening) screenClient(client, "Initial");
   saveState();
   render();
@@ -755,10 +878,10 @@ function openDecision(action) {
   decisionComment.value = "";
   decisionFiles.value = "";
   decisionTitle.textContent =
-    action === "confirm" ? "Confirmed Match" :
-    action === "falsePositive" ? "False Positive" :
-    "Escalate alert";
-  decisionHelp.textContent = `Alert ${alert.entity.id} for ${alert.clientName}.`;
+    action === "confirm" ? "დადასტურებული დამთხვევა" :
+    action === "falsePositive" ? "ცრუ ალარმი" :
+    "ალერტის ესკალაცია";
+  decisionHelp.textContent = `ალერტი ${alert.entity.id} კლიენტისთვის: ${alert.clientName}.`;
   decisionDialog.showModal();
 }
 
@@ -766,7 +889,7 @@ function applyDecision() {
   if (!pendingDecision) return;
   const comment = decisionComment.value.trim();
   if (comment.length < 20) {
-    alert("Decision comment must be at least 20 characters.");
+    alert("გადაწყვეტილების კომენტარი უნდა იყოს მინიმუმ 20 სიმბოლო.");
     return;
   }
   const alert = state.alerts.find((a) => a.id === pendingDecision.alertId);
@@ -779,7 +902,7 @@ function applyDecision() {
       client.confirmedMatch = true;
       client.risk = scoreClient(client);
     }
-    audit("Decision", "Alert", `Confirmed ${alert.entity.id}: ${comment}`);
+    audit("Decision", "Alert", `დადასტურდა ${alert.entity.id}: ${comment}`);
   }
   if (pendingDecision.action === "falsePositive") {
     alert.status = "False Positive";
@@ -795,11 +918,11 @@ function applyDecision() {
       expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
       status: "Active"
     });
-    audit("Decision", "Alert", `False positive ${alert.entity.id}: ${comment}`);
+    audit("Decision", "Alert", `ცრუ ალარმი ${alert.entity.id}: ${comment}`);
   }
   if (pendingDecision.action === "escalate") {
     alert.status = "Escalated";
-    audit("Decision", "Alert", `Escalated ${alert.entity.id}: ${comment}`);
+    audit("Decision", "Alert", `ესკალირდა ${alert.entity.id}: ${comment}`);
   }
   pendingDecision = null;
   saveState();
@@ -812,7 +935,7 @@ function prepareStr(alertId) {
   state.str.unshift({
     id: `STR-${Date.now().toString().slice(-6)}`,
     clientName: alert.clientName,
-    reason: `${alert.type} / ${alert.source} / ${alert.match}%`,
+    reason: `${label(alert.type, "alertType")} / ${alert.source} / ${alert.match}%`,
     deadline: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     status: "Draft"
   });
@@ -825,7 +948,7 @@ function prepareStr(alertId) {
 function runBatchScreening() {
   state.alerts = state.alerts.filter((a) => !["Soft Alert", "Open"].includes(a.status));
   state.clients.forEach((client) => screenClient(client, "Batch"));
-  audit("Batch Screening", "System", `${state.clients.length} clients screened`);
+  audit("Batch Screening", "System", `${state.clients.length} კლიენტი შემოწმდა`);
   saveState();
   render();
 }
@@ -861,7 +984,7 @@ document.body.addEventListener("click", (event) => {
     Object.keys(data).forEach((key) => {
       state.config[key] = Number(data[key]);
     });
-    audit("Update", "Config", `Threshold ${state.config.threshold}%`);
+    audit("Update", "Config", `ზღვარი ${state.config.threshold}%`);
     saveState();
     render();
   }
@@ -873,5 +996,5 @@ document.querySelector("#confirmDecision").addEventListener("click", (event) => 
   decisionDialog.close();
 });
 
-if (!state.audit.length) audit("Login", "Session", "Initial local session");
+if (!state.audit.length) audit("Login", "Session", "საწყისი ლოკალური სესია");
 render();
