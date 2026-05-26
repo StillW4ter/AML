@@ -1,0 +1,15 @@
+node_modules/
+.next/
+out/
+tmp/
+*.tsbuildinfo
+.env*.local
+
+# Prisma — local SQLite database
+prisma/dev.db
+prisma/dev.db-journal
+prisma/*.db
+prisma/*.db-journal
+
+# WhatsApp (Baileys) per-agent session state
+runtime/

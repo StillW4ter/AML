@@ -1,12 +1,41 @@
 {
-  "name": "acton-aml-workbench",
+  "name": "ways-insurance-comparison",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "start": "node server.js",
-    "dev": "PORT=5173 node server.js"
+    "dev": "next dev -p 5173",
+    "build": "next build",
+    "start": "next start -p ${PORT:-5173}",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "db:reset": "prisma migrate reset"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.5.0",
+    "@tailwindcss/postcss": "^4.3.0",
+    "@types/node": "^25.9.1",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "lucide-react": "^1.16.0",
+    "motion": "^12.40.0",
+    "next": "^15.5.18",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^6.0.3",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "prisma": "^6.5.0",
+    "tsx": "^4.19.2"
   }
 }

@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #f8f9f9;
+  --color-foreground: #121a2b;
+  --color-primary: #fb4d19;
+  --color-primary-hover: #cf4d03;
+  --color-secondary: #0066ff;
+  --color-muted: #f2f3f3;
+  --color-muted-foreground: #475366;
+  --color-border: #dbdcdd;
+
+  --font-sans: "TT Norms Pro", ui-sans-serif, system-ui;
+  --font-serif: var(--font-instrument-serif), "VC Honey", ui-serif, Georgia;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 32px;
+
+  --shadow-elevation-one: 0px 3px 12px 0px rgba(25, 25, 25, 0.08);
+  --shadow-elevation-two: 0px 10px 16px 0px rgba(25, 25, 25, 0.06);
+
+  --animate-marquee: marquee 40s linear infinite;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+
+:root {
+  --background: #f5f8ff;
+  --foreground: #121a2b;
+  --primary: #fb4d19;
+  --primary-foreground: #ffffff;
+}
+
+.mx-auto {
+  margin-inline: auto !important;
+}
+
+.heading-vc {
+  font-family: var(--font-serif);
+  letter-spacing: -0.01em;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    overflow-x: hidden;
+  }
+
+  button,
+  input {
+    font: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  img {
+    max-width: 100%;
+    display: block;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .glass-panel {
+    border: 1px solid rgba(255, 255, 255, 0.38);
+    background: rgba(255, 255, 255, 0.16);
+    box-shadow: 0 24px 80px rgba(18, 26, 43, 0.12);
+    backdrop-filter: blur(22px);
+  }
+
+  .float-slow {
+    animation: float-slow 6s ease-in-out infinite;
+  }
+}

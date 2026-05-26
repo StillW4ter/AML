@@ -1,0 +1,338 @@
+// Gurdena CRM data model.
+// Modeled on Twenty CRM's standard objects (People, Companies, Opportunities,
+// Activities, Tasks, Messages). SQLite in dev, PostgreSQL in prod — same schema.
+// SQLite note: Prisma enums are unsupported on SQLite, so enum-like columns are
+// String with allowed values documented inline.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// People & organizations
+// ---------------------------------------------------------------------------
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?  @unique
+  role      String   @default("agent") // agent | senior_agent | manager | admin
+  roleKa    String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ownedDeals Deal[]     @relation("DealOwner")
+  activities Activity[]
+  tasks      Task[]     @relation("TaskAssignee")
+  channels   Channel[]
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  domain    String?
+  phone     String?
+  city      String?
+  size      String? // micro | small | medium | large
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  people Person[]
+  deals  Deal[]
+}
+
+model Person {
+  id        String   @id @default(cuid())
+  name      String
+  nameKa    String?
+  email     String?
+  phone     String? // E.164 normalized
+  phoneRaw  String? // as originally supplied
+  city      String?
+  cityKa    String?
+  source    String?
+  consent   Json? // { marketing: bool, channels: ["sms","whatsapp","email"] }
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deals      Deal[]
+  messages   Message[]
+  activities Activity[]
+
+  @@index([phone])
+  @@index([email])
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline
+// ---------------------------------------------------------------------------
+
+model Pipeline {
+  id        String   @id @default(cuid())
+  name      String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  stages Stage[]
+  deals  Deal[]
+}
+
+model Stage {
+  id             String   @id @default(cuid())
+  pipelineId     String
+  pipeline       Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  name           String
+  nameKa         String?
+  position       Int
+  type           String   @default("open") // open | won | lost
+  requiredFields Json? // string[] of InsuranceProfile field keys gating entry
+  createdAt      DateTime @default(now())
+
+  deals Deal[]
+
+  @@unique([pipelineId, position])
+}
+
+// ---------------------------------------------------------------------------
+// Deals (Opportunities) + insurance data
+// ---------------------------------------------------------------------------
+
+model Deal {
+  id             String  @id @default(cuid())
+  reference      String  @unique // human id, e.g. LD-1024
+  title          String
+  lineOfBusiness String // auto | health | home | travel | pet | commercial
+  request        String?
+  requestKa      String?
+  status         String  @default("open") // open | won | lost
+  estimatedValue Float?
+  closeValue     Float?
+  currency       String  @default("GEL")
+  lossReason     String?
+  source         String?
+  sourceKa       String?
+
+  personId   String
+  person     Person   @relation(fields: [personId], references: [id])
+  companyId  String?
+  company    Company? @relation(fields: [companyId], references: [id])
+  pipelineId String
+  pipeline   Pipeline @relation(fields: [pipelineId], references: [id])
+  stageId    String
+  stage      Stage    @relation(fields: [stageId], references: [id])
+  ownerId    String?
+  owner      User?    @relation("DealOwner", fields: [ownerId], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  closedAt  DateTime?
+
+  profile    InsuranceProfile?
+  quotes     Quote[]
+  activities Activity[]
+  tasks      Task[]
+  messages   Message[]
+
+  @@index([stageId])
+  @@index([personId])
+  @@index([status])
+}
+
+model InsuranceProfile {
+  id              String    @id @default(cuid())
+  dealId          String    @unique
+  deal            Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  lob             String
+  // Per-deal field VALUES: { key, value, source }[]. Definitions: FieldDefinition.
+  fields          Json
+  sumInsured      Float?
+  premiumEstimate Float?
+  insurer         String?
+  policyNumber    String?
+  policyStart     DateTime?
+  renewalDate     DateTime? // policy expiry — drives renewal notifications
+  updatedAt       DateTime  @updatedAt
+}
+
+model Quote {
+  id         String    @id @default(cuid())
+  dealId     String
+  deal       Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  insurer    String
+  premium    Float
+  currency   String    @default("GEL")
+  coverage   Json? // structured coverage summary
+  status     String    @default("draft") // draft | sent | viewed | accepted | declined
+  shareToken String?   @unique
+  sentAt     DateTime?
+  viewedAt   DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Timeline, tasks
+// ---------------------------------------------------------------------------
+
+model Activity {
+  id         String   @id @default(cuid())
+  dealId     String?
+  deal       Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  personId   String?
+  person     Person?  @relation(fields: [personId], references: [id])
+  type       String // call | sms | whatsapp | email | note | status | system
+  title      String
+  titleKa    String?
+  body       String?
+  bodyKa     String?
+  authorId   String?
+  author     User?    @relation(fields: [authorId], references: [id])
+  authorName String? // free-text author for AI / system entries
+  meta       Json?
+  createdAt  DateTime @default(now())
+
+  @@index([dealId])
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  dealId      String?
+  deal        Deal?     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  status      String    @default("open") // open | done | cancelled
+  priority    String    @default("normal") // low | normal | high | urgent
+  dueAt       DateTime?
+  assigneeId  String?
+  assignee    User?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([dueAt])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Messaging
+// ---------------------------------------------------------------------------
+
+model Channel {
+  id          String   @id @default(cuid())
+  type        String // email | sms | whatsapp
+  provider    String // gmail | smsoffice | baileys
+  label       String
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  status      String   @default("disconnected") // connected | disconnected | pending | error
+  identifier  String? // mailbox address / SMS sender name / WA number
+  credentials Json? // encrypted token blob; for whatsapp a session reference
+  meta        Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  messages Message[]
+}
+
+model Message {
+  id          String    @id @default(cuid())
+  channel     String // email | sms | whatsapp
+  direction   String // inbound | outbound
+  status      String    @default("queued") // queued | sent | delivered | read | failed | mock | received
+  providerId  String? // id returned by the provider
+  channelRef  String?
+  channelRow  Channel?  @relation(fields: [channelRef], references: [id])
+  dealId      String?
+  deal        Deal?     @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  personId    String?
+  person      Person?   @relation(fields: [personId], references: [id])
+  toAddress   String?
+  fromAddress String?
+  subject     String?
+  body        String
+  meta        Json?
+  error       String?
+  createdAt   DateTime  @default(now())
+  sentAt      DateTime?
+
+  @@index([dealId])
+  @@index([providerId])
+}
+
+// ---------------------------------------------------------------------------
+// API access & webhooks
+// ---------------------------------------------------------------------------
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  name       String
+  hash       String    @unique // sha256 of the raw key
+  prefix     String // first 8 chars, shown in the UI
+  scopes     String // comma-separated: leads:read, leads:write, messages:send, webhooks:manage, *
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model WebhookEndpoint {
+  id        String   @id @default(cuid())
+  url       String
+  secret    String
+  events    String // comma-separated event names
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  deliveries WebhookDelivery[]
+}
+
+model WebhookDelivery {
+  id            String          @id @default(cuid())
+  endpointId    String
+  endpoint      WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  event         String
+  payload       Json
+  status        String          @default("pending") // pending | success | failed
+  attempts      Int             @default(0)
+  responseCode  Int?
+  lastAttemptAt DateTime?
+  createdAt     DateTime        @default(now())
+
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Customization — editable field definitions & global settings
+// ---------------------------------------------------------------------------
+
+// A custom underwriting field, managed by a manager in Settings.
+// `lob` empty string = shared (applies to every deal); otherwise it applies
+// only to deals of that line of business.
+model FieldDefinition {
+  id        String   @id @default(cuid())
+  key       String
+  labelEn   String
+  labelKa   String?
+  type      String   @default("text") // text | number | date | select | boolean
+  options   Json? // string[] of choices when type = select
+  required  Boolean  @default(false)
+  lob       String   @default("") // "" = shared across all insurance types
+  position  Int      @default(0)
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([lob, key])
+}
+
+// Key/value store for global configuration (e.g. the renewal schedule).
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}

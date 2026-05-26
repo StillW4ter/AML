@@ -1,0 +1,16 @@
+<svg width="720" height="220" viewBox="0 0 720 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>Ways logo</title>
+  <g stroke="#174F46" stroke-width="28" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="3">
+    <path d="M28 48L85 105L110 80L138 108L178 48" />
+    <path d="M71 137L110 176L146 140L84 78" />
+  </g>
+  <text
+    x="224"
+    y="148"
+    fill="#16243A"
+    font-family="Dachi The Lynx, Arial Black, sans-serif"
+    font-size="112"
+    font-weight="700"
+    letter-spacing="1"
+  >WAYS</text>
+</svg>
