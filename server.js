@@ -41,8 +41,9 @@ function send(res, status, body, type = "text/html; charset=utf-8") {
 
 function renderAmlPage() {
   const countries = getCountries();
-  const countryOptions = countries.map((country) => `<option value="${escapeHtml(country)}">${escapeHtml(country)}</option>`).join("");
-  const secondCountryOptions = `<option value="">არ აქვს</option>${countryOptions}`;
+  const plainCountryOptions = countries.map((country) => `<option value="${escapeHtml(country)}">${escapeHtml(country)}</option>`).join("");
+  const countryOptions = countries.map((country) => `<option value="${escapeHtml(country)}"${country === "საქართველო" ? " selected" : ""}>${escapeHtml(country)}</option>`).join("");
+  const secondCountryOptions = `<option value="">არ აქვს</option>${plainCountryOptions}`;
 
   return `<!doctype html>
 <html lang="ka">
@@ -72,10 +73,24 @@ function renderAmlPage() {
       .langs button.active { background: var(--ink); }
       .actions > button[data-registry] { background: var(--accent-weak); color: var(--accent-ink); border-color: #c6ded7; }
       .actions > .primary { width: 100%; }
+      .workflow { display: grid; grid-template-columns: repeat(8, minmax(130px, 1fr)); gap: 10px; padding: 12px; }
+      .flow-step { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #f8fbfa; min-height: 76px; display: grid; align-content: center; gap: 4px; }
+      .flow-step strong { font-size: 13px; line-height: 1.15; }
+      .flow-step span { color: var(--muted); font-weight: 800; font-size: 11px; line-height: 1.2; }
+      .flow-step.active { background: var(--accent-weak); border-color: #a8d3ca; color: var(--accent-ink); }
       .grid { display: grid; gap: 22px; grid-template-columns: minmax(0, 1fr) 420px; align-items: start; }
       form.panel, aside.panel { padding: 24px; }
       .section { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 20px; padding-bottom: 24px; border-bottom: 1px solid var(--line); margin-bottom: 24px; position: relative; }
       .section:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+      .section-title { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 2px; }
+      .section-title h2 { margin: 0; font-size: 18px; }
+      .section-title span { color: var(--muted); font-size: 12px; font-weight: 900; }
+      .wide { grid-column: span 2; }
+      .full { grid-column: 1 / -1; }
+      .module-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+      .module-card { padding: 16px; display: grid; gap: 10px; min-height: 128px; }
+      .module-card h3 { margin: 0; font-size: 16px; line-height: 1.15; }
+      .module-card p { margin: 0; color: var(--muted); font-weight: 780; font-size: 13px; line-height: 1.35; }
       label { display: grid; gap: 8px; font-weight: 900; font-size: 15px; line-height: 1.15; }
       input, select { width: 100%; height: 54px; border: 1px solid var(--line); border-radius: 10px; padding: 0 14px; font: inherit; font-weight: 760; background: var(--field); color: var(--ink); min-width: 0; outline: none; }
       input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15,118,110,.14); }
@@ -93,7 +108,7 @@ function renderAmlPage() {
       .success { background: #ecfdf3; color: var(--ok); padding: 13px 14px; border-radius: 10px; border-left: 4px solid var(--ok); font-weight: 860; font-size: 15px; }
       ul { margin: 0; padding-left: 21px; }
       li { margin: 11px 0; color: var(--muted); font-weight: 800; font-size: 15px; line-height: 1.28; }
-      @media (max-width: 1180px) { header.panel, .grid { grid-template-columns: 1fr; } .actions { min-width: 0; } .section { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (max-width: 1180px) { header.panel, .grid { grid-template-columns: 1fr; } .actions { min-width: 0; } .section { grid-template-columns: repeat(2, minmax(0, 1fr)); } .workflow, .module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       @media (max-width: 700px) { main { padding: 14px; } header.panel, form.panel, aside.panel { padding: 18px; border-radius: 16px; } h1 { font-size: 32px; } .sub { font-size: 15px; } .section { grid-template-columns: 1fr; } button { width: 100%; } }
     </style>
   </head>
@@ -118,19 +133,38 @@ function renderAmlPage() {
           </div>
         </header>
 
+        <nav class="panel workflow" aria-label="AML workflow from old specification">
+          <div class="flow-step active"><strong>ფიზიკური პირი</strong><span>რეგისტრაცია და KYC</span></div>
+          <div class="flow-step"><strong>იურიდიული პირი</strong><span>კომპანია, დირექტორი, მისამართები</span></div>
+          <div class="flow-step"><strong>UBO</strong><span>ბენეფიციარები და მფლობელობა</span></div>
+          <div class="flow-step"><strong>რისკი</strong><span>SDD / CDD / EDD</span></div>
+          <div class="flow-step"><strong>სკრინინგი</strong><span>საწყისი და პერიოდული</span></div>
+          <div class="flow-step"><strong>შეტყობინებები</strong><span>Alerts და whitelist</span></div>
+          <div class="flow-step"><strong>STR</strong><span>საეჭვო ტრანზაქცია</span></div>
+          <div class="flow-step"><strong>აუდიტი</strong><span>ჟურნალი და რეპორტები</span></div>
+        </nav>
+
         <section class="grid">
           <form class="panel">
             <div class="section">
+              <div class="section-title"><h2>ფიზიკური პირის მონაცემები</h2><span>OLD AML baseline</span></div>
               <label><span><span data-i18n="firstName">სახელი</span><span class="required"> *</span></span><input id="firstName" /></label>
               <label><span><span data-i18n="lastName">გვარი</span><span class="required"> *</span></span><input id="lastName" /></label>
               <label><span><span data-i18n="personalId">პირადი ნომერი</span><span class="required"> *</span></span><input id="personalId" inputmode="numeric" maxlength="11" /><small data-i18n="personalIdHelp">საქართველოს მოქალაქისთვის ზუსტად 11 ციფრი</small></label>
               <label><span><span data-i18n="birthDate">დაბადების თარიღი</span><span class="required"> *</span></span><input id="birthDate" type="date" /></label>
+              <label><span>სქესი<span class="required"> *</span></span><select id="gender"><option value="">აირჩიეთ</option><option>მამრობითი</option><option>მდედრობითი</option></select></label>
               <label><span><span data-i18n="citizenship">მოქალაქეობა</span><span class="required"> *</span></span><select id="citizenship">${countryOptions}</select></label>
               <label><span data-i18n="secondCitizenship">მეორე მოქალაქეობა</span><select id="secondCitizenship">${secondCountryOptions}</select></label>
               <label><span><span data-i18n="legalAddress">იურიდიული მისამართი</span><span class="required"> *</span></span><input id="legalAddress" /></label>
               <label><span><span data-i18n="actualAddress">ფაქტიური მისამართი</span><span class="required"> *</span></span><input id="actualAddress" /></label>
+              <label><span>საკონტაქტო ტელეფონი<span class="required"> *</span></span><input id="phone" placeholder="+995..." /></label>
+              <label><span>ელ. ფოსტა<span class="required"> *</span></span><input id="email" type="email" /></label>
+              <label><span>საგადასახადო რეზიდენტობა</span><select id="taxResidence">${secondCountryOptions}</select></label>
+              <label><span>საგადასახადო ნომერი (TIN)</span><input id="tin" /></label>
+              <label class="wide"><span>პასპორტის/პირადობის ასლი</span><input id="idScan" type="file" /></label>
             </div>
             <div class="section">
+              <div class="section-title"><h2>დოკუმენტი და სამოქალაქო რეესტრი</h2><span>სტატუსი read-only</span></div>
               <label><span><span data-i18n="documentType">დოკუმენტის ტიპი</span><span class="required"> *</span></span><select id="documentType"></select></label>
               <label><span data-i18n="documentNumber">დოკუმენტის ნომერი</span><input id="documentNumber" /></label>
               <label><span data-i18n="documentStatus">დოკუმენტის სტატუსი</span><div class="status-box"><span id="documentStatusText">არ არის გადამოწმებული</span><span>🔒</span></div><small data-i18n="readOnly">ხელით არ რედაქტირდება</small></label>
@@ -141,12 +175,19 @@ function renderAmlPage() {
               </div>
             </div>
             <div class="section">
+              <div class="section-title"><h2>KYC და რისკის საწყისი ფაქტორები</h2><span>დასაქმებულზე ველები აქტიურდება</span></div>
               <label><span><span data-i18n="activityStatus">საქმიანობის სტატუსი</span><span class="required"> *</span></span><select id="activityStatus"></select></label>
               <label><span><span data-i18n="employerName">დამსაქმებელი ორგანიზაცია</span><span class="required employed-only"> *</span></span><input id="employerName" disabled /><small data-i18n="activatesOnEmployed">აქტიურდება სტატუსზე: დასაქმებული</small></label>
               <label><span><span data-i18n="position">თანამდებობა</span><span class="required employed-only"> *</span></span><input id="position" disabled /><small data-i18n="activatesOnEmployed">აქტიურდება სტატუსზე: დასაქმებული</small></label>
               <label><span><span data-i18n="employerBusinessField">დამსაქმებლის საქმიანობის სფერო</span><span class="required employed-only"> *</span></span><input id="employerBusinessField" disabled /><small data-i18n="activatesOnEmployed">აქტიურდება სტატუსზე: დასაქმებული</small></label>
               <label><span><span data-i18n="incomeSource">შემოსავლის წყარო</span><span class="required"> *</span></span><select id="incomeSource"></select></label>
               <label><span><span data-i18n="expectedPremium">მოსალოდნელი წლიური პრემია</span><span class="required"> *</span></span><select id="expectedPremium"><option value=""></option><option>&lt; 50,000 GEL</option><option>50,000 - 200,000 GEL</option><option>200,000 - 1,000,000 GEL</option><option>&gt; 1,000,000 GEL</option></select></label>
+              <label><span>პროდუქტის ტიპი<span class="required"> *</span></span><select id="productType"><option value="">აირჩიეთ</option><option value="auto-tpl">ავტო TPL</option><option value="health">ჯანმრთელობა</option><option value="property">ქონება</option><option value="car-ear">CAR/EAR</option><option value="cargo">ტვირთი</option><option value="life-investment">სიცოცხლე / საინვესტიციო</option></select></label>
+              <label><span>საქმიანობის სფერო<span class="required"> *</span></span><select id="businessSector"><option value="">აირჩიეთ</option><option value="low-risk">დაბალი რისკის სფერო</option><option value="ordinary">ჩვეულებრივი ბიზნესი</option><option value="cash-intensive">ნაღდზე ინტენსიური</option><option value="crypto">კრიპტო</option><option value="gambling">აზარტული თამაშები</option><option value="weapons">იარაღი</option><option value="precious-metals">ძვირფასი მეტალები</option></select></label>
+              <label><span>წლიური შემოსავალი</span><select id="annualIncome"><option value="">აირჩიეთ</option><option>&lt; 50,000 GEL</option><option>50,000 - 100,000 GEL</option><option>100,000 - 500,000 GEL</option><option>&gt; 500,000 GEL</option></select></label>
+              <label><span>PEP/RCA სტატუსი<span class="required"> *</span></span><select id="pepStatus"><option value="No">არა</option><option value="Local PEP">ადგილობრივი PEP</option><option value="Foreign PEP">უცხო ქვეყნის PEP</option><option value="International PEP">საერთაშორისო ორგანიზაციის PEP</option><option value="RCA">RCA</option></select></label>
+              <label class="wide"><span>PEP დეტალები</span><input id="pepDetails" /></label>
+              <label class="full"><span>KYC დოკუმენტები</span><input id="supportingDocs" type="file" multiple /></label>
             </div>
           </form>
 
@@ -157,15 +198,37 @@ function renderAmlPage() {
               <div id="errors"></div>
             </section>
             <section>
+              <h2>რისკის სქორინგი</h2>
+              <div id="riskBox"></div>
+            </section>
+            <section>
               <h2 data-i18n="implementation">მოთხოვნების სტატუსი</h2>
               <ul>
                 <li id="countryCount">Excel ფაილიდან დამატებულია ${countries.length} ქვეყანა.</li>
                 <li data-i18n="legalDone">იურიდიული მისამართი დამატებულია.</li>
                 <li data-i18n="statusDone">დოკუმენტის სტატუსი locked/read-only რეჟიმშია.</li>
                 <li data-i18n="kycDone">დასაქმებულზე დამსაქმებელი, თანამდებობა და სფერო სავალდებულოა.</li>
+                <li>ძველი AML დოკუმენტაციიდან დაბრუნებულია KYC, PEP/RCA და რისკის სქორინგის ძირითადი ველები.</li>
               </ul>
             </section>
           </aside>
+        </section>
+
+        <section class="panel" style="padding:24px">
+          <div class="section-title" style="margin-bottom:16px">
+            <h2>OLD AML სისტემის სრული ჩარჩო</h2>
+            <span>არ არის წაშლილი - ახალი მოთხოვნები ემატება ამ ბაზას</span>
+          </div>
+          <div class="module-grid">
+            <article class="panel module-card"><h3>იურიდიული პირი</h3><p>ორგანიზაციის სახელი, საიდენტიფიკაციო ნომერი, იურიდიული და ფაქტიური მისამართი, დირექტორი, რეგისტრაციის ქვეყანა და თარიღი.</p></article>
+            <article class="panel module-card"><h3>UBO</h3><p>ბენეფიციარი მესაკუთრეები, წილი, კონტროლის ტიპი, ოფშორი/მრავალდონიანი სტრუქტურის რისკი.</p></article>
+            <article class="panel module-card"><h3>რისკის სქორინგი</h3><p>მოქალაქეობა, მეორე მოქალაქეობა, PEP/RCA, პროდუქტი, პრემია, შემოსავალი და საქმიანობის სფერო ითვლის SDD/CDD/EDD-ს.</p></article>
+            <article class="panel module-card"><h3>სკრინინგი</h3><p>საწყისი და პერიოდული შემოწმება სანქციებზე, PEP სიებზე, უარყოფით მედიაზე და whitelist გამონაკლისებზე.</p></article>
+            <article class="panel module-card"><h3>Alerts</h3><p>გადამოწმების შედეგები გადადის AML ოფიცერთან დამუშავების სტატუსებით და კომენტარებით.</p></article>
+            <article class="panel module-card"><h3>STR</h3><p>საეჭვო ტრანზაქციის შიდა ესკალაცია, გადაწყვეტილება, ფაილები და რეგულატორული მომზადება.</p></article>
+            <article class="panel module-card"><h3>რეპორტები</h3><p>კლიენტების რისკი, გახსნილი alerts, ვადაგადაცილებული periodic review და სტატისტიკა.</p></article>
+            <article class="panel module-card"><h3>Audit log</h3><p>ყველა ცვლილების ავტორი, დრო, ძველი/ახალი მნიშვნელობა და გადაწყვეტილების კვალი.</p></article>
+          </div>
         </section>
       </div>
     </main>
@@ -178,17 +241,38 @@ function renderAmlPage() {
         ru: { eyebrow:"AML модуль · Регистрация физического лица", title:"Форма регистрации клиента", subtitle:"Гражданство, юридический адрес, статус из реестра и KYC-поля готовы для рабочего процесса сотрудника.", registryActive:"Активно из реестра", validateSave:"Проверить и сохранить", firstName:"Имя", lastName:"Фамилия", personalId:"Личный номер", personalIdHelp:"Для граждан Грузии ровно 11 цифр", birthDate:"Дата рождения", citizenship:"Гражданство", secondCitizenship:"Второе гражданство", legalAddress:"Юридический адрес", actualAddress:"Фактический адрес", documentType:"Тип документа", documentNumber:"Номер документа", documentStatus:"Статус документа", readOnly:"Не редактируется вручную", civilActive:"Гражданский реестр: активен", civilInactive:"Гражданский реестр: неактивен", timeout:"Timeout", activityStatus:"Статус занятости", employerName:"Организация-работодатель", position:"Должность", employerBusinessField:"Сфера деятельности работодателя", activatesOnEmployed:"Активируется при статусе: Работает", incomeSource:"Источник дохода", expectedPremium:"Ожидаемая годовая премия", implementation:"Статус требований", legalDone:"Добавлено поле юридического адреса.", statusDone:"Статус документа заблокирован/read-only.", kycDone:"Работодатель, должность и сфера обязательны для статуса Работает.", todo:"Нужно заполнить", ready:"Форма готова", liveValidation:"Живая валидация", checkResult:"Результат проверки", allDone:"Все обязательные поля заполнены.", countryCount:countriesCount + " стран импортировано из Excel.", choose:"Выберите", none:"Нет", statuses:{not_checked:"Не проверено", active:"Активен", inactive:"Неактивен", timeout:"Нет ответа реестра"}, documentTypes:[["id_card","ID-карта"],["residence","Вид на жительство"],["temporary_residence","Временный вид на жительство"],["passport","Паспорт"]], activities:[["","Выберите"],["employed","Работает"],["business_owner","Владелец бизнеса"],["sole_proprietor","ИП"],["self_employed","Самозанятый"],["unemployed","Безработный"],["student","Студент"],["retired","Пенсионер"]], income:["","Зарплата","Дивиденды","Аренда","Пенсия","Другое"], errors:["Имя обязательно.","Фамилия обязательна.","Для граждан Грузии личный номер должен состоять ровно из 11 цифр.","Юридический адрес обязателен.","Фактический адрес обязателен.","Статус документа должен прийти из Гражданского реестра и быть активным.","Статус занятости обязателен.","Работодатель обязателен для статуса Работает.","Должность обязательна для статуса Работает.","Сфера работодателя обязательна для статуса Работает.","Источник дохода обязателен.","Ожидаемая годовая премия обязательна."] },
         tr: { eyebrow:"AML modülü · Bireysel kayıt", title:"Müşteri kayıt formu", subtitle:"Vatandaşlık, yasal adres, sicil durumu ve KYC alanları çalışan akışı için hazır.", registryActive:"Sicilden aktif işaretle", validateSave:"Kontrol et ve kaydet", firstName:"Ad", lastName:"Soyad", personalId:"Kimlik numarası", personalIdHelp:"Gürcistan vatandaşları için tam 11 rakam", birthDate:"Doğum tarihi", citizenship:"Vatandaşlık", secondCitizenship:"İkinci vatandaşlık", legalAddress:"Yasal adres", actualAddress:"Fiili adres", documentType:"Belge türü", documentNumber:"Belge numarası", documentStatus:"Belge durumu", readOnly:"Elle düzenlenemez", civilActive:"Sivil Sicil: aktif", civilInactive:"Sivil Sicil: pasif", timeout:"Timeout", activityStatus:"Çalışma durumu", employerName:"İşveren kuruluş", position:"Pozisyon", employerBusinessField:"İşveren faaliyet alanı", activatesOnEmployed:"Çalışan durumunda etkinleşir", incomeSource:"Gelir kaynağı", expectedPremium:"Beklenen yıllık prim", implementation:"Talep durumu", legalDone:"Yasal adres alanı eklendi.", statusDone:"Belge durumu kilitli/read-only.", kycDone:"Çalışan müşteriler için işveren, pozisyon ve faaliyet alanı zorunlu.", todo:"Doldurulacak", ready:"Form hazır", liveValidation:"Canlı doğrulama", checkResult:"Kontrol sonucu", allDone:"Tüm zorunlu alanlar tamamlandı.", countryCount:countriesCount + " ülke Excel'den aktarıldı.", choose:"Seçin", none:"Yok", statuses:{not_checked:"Kontrol edilmedi", active:"Aktif", inactive:"Pasif", timeout:"Sicilden yanıt yok"}, documentTypes:[["id_card","Kimlik kartı"],["residence","Oturum kartı"],["temporary_residence","Geçici oturum kartı"],["passport","Pasaport"]], activities:[["","Seçin"],["employed","Çalışan"],["business_owner","İşletme sahibi"],["sole_proprietor","Şahıs girişimci"],["self_employed","Serbest çalışan"],["unemployed","İşsiz"],["student","Öğrenci"],["retired","Emekli"]], income:["","Maaş","Temettü","Kira","Emeklilik","Diğer"], errors:["Ad zorunludur.","Soyad zorunludur.","Gürcistan vatandaşları için kimlik numarası tam 11 rakam olmalıdır.","Yasal adres zorunludur.","Fiili adres zorunludur.","Belge durumu Sivil Sicil'den gelmeli ve aktif olmalıdır.","Çalışma durumu zorunludur.","Çalışan müşteriler için işveren zorunludur.","Çalışan müşteriler için pozisyon zorunludur.","Çalışan müşteriler için işveren faaliyet alanı zorunludur.","Gelir kaynağı zorunludur.","Beklenen yıllık prim zorunludur."] }
       };
-      const ids = ["firstName","lastName","personalId","birthDate","citizenship","legalAddress","actualAddress","activityStatus","employerName","position","employerBusinessField","incomeSource","expectedPremium"];
+      const highRiskCountries = ["რუსეთის ფედერაცია", "ირანი (ისლამური რესპუბლიკა)", "სირიის არაბთა რესპუბლიკა", "კორეის სახალხო დემოკრატიული რესპუბლიკა"];
+      const ids = ["firstName","lastName","personalId","birthDate","gender","citizenship","legalAddress","actualAddress","phone","email","taxResidence","tin","activityStatus","employerName","position","employerBusinessField","incomeSource","expectedPremium","productType","businessSector","annualIncome","pepStatus","pepDetails"];
       const el = (id) => document.getElementById(id);
-      function fillSelect(id, pairs) { el(id).innerHTML = pairs.map(([value, label]) => '<option value="' + value + '">' + label + '</option>').join(""); }
-      function fillOptions(id, values) { el(id).innerHTML = values.map((value, index) => '<option value="' + (index ? value : "") + '">' + (value || copy[state.lang].choose) + '</option>').join(""); }
+      function fillSelect(id, pairs) {
+        const node = el(id), selected = node.value;
+        node.innerHTML = pairs.map(([value, label]) => '<option value="' + value + '">' + label + '</option>').join("");
+        if (pairs.some(([value]) => value === selected)) node.value = selected;
+      }
+      function fillOptions(id, values) {
+        const node = el(id), selected = node.value;
+        node.innerHTML = values.map((value, index) => '<option value="' + (index ? value : "") + '">' + (value || copy[state.lang].choose) + '</option>').join("");
+        if (values.includes(selected)) node.value = selected;
+      }
       function validate() {
         const c = copy[state.lang], errors = [];
         if (!el("firstName").value.trim()) errors.push(c.errors[0]);
         if (!el("lastName").value.trim()) errors.push(c.errors[1]);
         if (el("citizenship").value === "საქართველო" && !/^\\d{11}$/.test(el("personalId").value)) errors.push(c.errors[2]);
+        if (!el("birthDate").value) errors.push("დაბადების თარიღი სავალდებულოა.");
+        if (el("birthDate").value) {
+          const birth = new Date(el("birthDate").value + "T00:00:00");
+          const now = new Date();
+          let age = now.getFullYear() - birth.getFullYear();
+          const month = now.getMonth() - birth.getMonth();
+          if (month < 0 || (month === 0 && now.getDate() < birth.getDate())) age -= 1;
+          if (age < 18) errors.push("ასაკი <18, რეგისტრაცია შეუძლებელია.");
+        }
+        if (!el("gender").value) errors.push("სქესი სავალდებულოა.");
         if (!el("legalAddress").value.trim()) errors.push(c.errors[3]);
         if (!el("actualAddress").value.trim()) errors.push(c.errors[4]);
+        if (!/^\\+\\d{8,15}$/.test(el("phone").value.trim())) errors.push("ტელეფონი უნდა იყოს E.164 ფორმატში, მაგალითად +995555123456.");
+        if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(el("email").value.trim())) errors.push("ელ. ფოსტა არასწორია.");
         if (state.documentStatus !== "active") errors.push(c.errors[5]);
         if (!el("activityStatus").value) errors.push(c.errors[6]);
         if (el("activityStatus").value === "employed") {
@@ -198,9 +282,38 @@ function renderAmlPage() {
         }
         if (!el("incomeSource").value) errors.push(c.errors[10]);
         if (!el("expectedPremium").value) errors.push(c.errors[11]);
+        if (!el("productType").value) errors.push("საქმიანი ურთიერთობის მიზანი / პროდუქტის ტიპი სავალდებულოა.");
+        if (!el("businessSector").value) errors.push("საქმიანობის სფერო სავალდებულოა.");
+        if (el("pepStatus").value !== "No" && !el("pepDetails").value.trim()) errors.push("PEP/RCA სტატუსის შემთხვევაში დეტალები სავალდებულოა.");
         el("validationTitle").textContent = errors.length ? c.todo : c.ready;
         el("validationMode").textContent = state.submitted ? c.checkResult : c.liveValidation;
         el("errors").innerHTML = errors.length ? errors.map((error) => '<div class="error">' + error + '</div>').join("") : '<div class="success">' + c.allDone + '</div>';
+        renderRisk();
+      }
+      function scoreClient() {
+        let score = 0;
+        const reasons = [];
+        const add = (points, reason) => { score += points; reasons.push({ points, reason }); };
+        if (el("citizenship").value && el("citizenship").value !== "საქართველო") add(highRiskCountries.includes(el("citizenship").value) ? 40 : 10, "მოქალაქეობის იურისდიქცია");
+        if (el("secondCitizenship").value) add(highRiskCountries.includes(el("secondCitizenship").value) ? 40 : 10, "მეორე მოქალაქეობა");
+        if (["crypto", "gambling", "weapons", "precious-metals"].includes(el("businessSector").value)) add(30, "მაღალი რისკის საქმიანობის სფერო");
+        if (el("businessSector").value === "cash-intensive") add(15, "ნაღდზე ინტენსიური საქმიანობა");
+        if (el("productType").value === "life-investment") add(20, "საინვესტიციო კომპონენტის პროდუქტი");
+        if (el("expectedPremium").value.includes("50,000 - 200,000")) add(5, "პრემია 50k-200k");
+        if (el("expectedPremium").value.includes("200,000 - 1,000,000")) add(15, "პრემია 200k-1m");
+        if (el("expectedPremium").value.includes("> 1,000,000")) add(25, "პრემია 1m-ზე მეტი");
+        if (["დივიდენდი","იჯარა","სხვა","Dividend","Rent","Other","Дивиденды","Аренда","Другое","Temettü","Kira","Diğer"].includes(el("incomeSource").value)) add(5, "შემოსავლის წყარო საჭიროებს ყურადღებას");
+        if (el("pepStatus").value !== "No") add(45, "PEP/RCA სტატუსი");
+        const finalScore = Math.min(100, score);
+        const level = finalScore >= 61 ? "მაღალი" : finalScore >= 26 ? "საშუალო" : "დაბალი";
+        const due = finalScore >= 61 ? "EDD" : finalScore >= 26 ? "CDD" : "SDD";
+        return { score: finalScore, level, due, reasons };
+      }
+      function renderRisk() {
+        const risk = scoreClient();
+        const color = risk.level === "მაღალი" ? "var(--bad)" : risk.level === "საშუალო" ? "#0f5e8a" : "var(--ok)";
+        el("riskBox").innerHTML = '<div class="success" style="border-left-color:' + color + ';color:' + color + '">' + risk.level + ' · ' + risk.score + ' · ' + risk.due + '</div>' +
+          (risk.reasons.length ? risk.reasons.map((r) => '<div class="error" style="background:#f8fbfa;color:var(--ink);border-left-color:#b7cdc6">+' + r.points + ' · ' + r.reason + '</div>').join("") : '<p style="color:var(--muted);font-weight:800">რისკ-ფაქტორი ჯერ არ დაფიქსირებულა.</p>');
       }
       function renderLang() {
         const c = copy[state.lang];
@@ -228,6 +341,7 @@ function renderAmlPage() {
         if (event.target.id === "submitCheck") { state.submitted = true; validate(); }
       });
       document.addEventListener("input", validate);
+      document.addEventListener("change", validate);
       el("activityStatus").addEventListener("change", updateKyc);
       el("personalId").addEventListener("input", (event) => { event.target.value = event.target.value.replace(/\\D/g, ""); });
       renderLang();
