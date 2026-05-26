@@ -51,39 +51,48 @@ function renderAmlPage() {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AML - კლიენტის რეგისტრაცია</title>
     <style>
-      :root { color-scheme: light; --ink:#17211f; --muted:#5d6d68; --line:#dce5e1; --soft:#eef4f1; --brand:#fb4d19; --ok:#047857; --bad:#b42318; }
+      :root { color-scheme: light; --ink:#17211f; --muted:#61706b; --line:#dce7e3; --soft:#edf5f2; --brand:#ff3f17; --ok:#047857; --bad:#b42318; --danger-bg:#fdebea; --field:#fdfefe; --disabled:#edf2f0; }
       * { box-sizing: border-box; }
-      body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--soft); color: var(--ink); }
-      main { min-height: 100vh; padding: 24px; }
-      .wrap { max-width: 1360px; margin: 0 auto; display: grid; gap: 18px; }
-      .panel { background: white; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 32px rgba(22, 33, 31, .06); }
-      header.panel { padding: 22px; display: flex; justify-content: space-between; gap: 18px; align-items: center; }
-      .eyebrow { margin: 0 0 8px; color: var(--brand); font-weight: 900; font-size: 14px; }
-      h1 { margin: 0; font-size: clamp(28px, 4vw, 42px); line-height: 1.05; letter-spacing: 0; }
-      .sub { margin: 10px 0 0; color: var(--muted); font-weight: 650; max-width: 780px; }
-      .actions, .langs, .registry-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-      button { border: 0; border-radius: 10px; padding: 12px 14px; font-weight: 900; cursor: pointer; background: #f4f7f5; color: var(--ink); }
+      body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: radial-gradient(circle at 10% 0%, #f7fbf9 0, var(--soft) 420px); color: var(--ink); }
+      main { min-height: 100vh; padding: 34px 40px; }
+      .wrap { max-width: 1880px; margin: 0 auto; display: grid; gap: 26px; }
+      .panel { background: rgba(255,255,255,.96); border: 1px solid rgba(189, 209, 202, .85); border-radius: 22px; box-shadow: 0 22px 55px rgba(43, 65, 58, .10); }
+      header.panel { padding: 32px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px; align-items: center; }
+      .eyebrow { margin: 0 0 10px; color: var(--brand); font-weight: 950; font-size: 17px; letter-spacing: .01em; }
+      h1 { margin: 0; font-size: clamp(40px, 4.4vw, 66px); line-height: .98; letter-spacing: 0; font-weight: 950; }
+      .sub { margin: 10px 0 0; color: var(--muted); font-weight: 850; max-width: 980px; font-size: clamp(18px, 1.6vw, 24px); line-height: 1.22; }
+      .actions { display: grid; grid-template-columns: auto auto; gap: 10px; align-items: start; justify-content: end; }
+      .langs, .registry-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+      button { border: 0; border-radius: 12px; padding: 14px 18px; min-height: 54px; font-weight: 950; cursor: pointer; background: #f1f6f4; color: var(--ink); font-size: 16px; transition: transform .12s ease, background .12s ease, box-shadow .12s ease; }
+      button:hover { transform: translateY(-1px); box-shadow: 0 10px 18px rgba(22,33,31,.08); }
       button.primary { background: var(--brand); color: white; }
       button.active { background: var(--ink); color: white; }
-      .grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) 360px; }
-      form.panel, aside.panel { padding: 20px; }
-      .section { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding-bottom: 18px; border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+      .langs button { width: 66px; padding-inline: 0; }
+      .actions > button[data-registry] { grid-column: 2; min-width: 300px; }
+      .actions > .primary { grid-column: 1 / -1; justify-self: start; min-width: 250px; }
+      .grid { display: grid; gap: 26px; grid-template-columns: minmax(0, 1fr) 496px; align-items: start; }
+      form.panel, aside.panel { padding: 28px; }
+      .section { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; padding-bottom: 26px; border-bottom: 1px solid var(--line); margin-bottom: 26px; }
       .section:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
-      label { display: grid; gap: 7px; font-weight: 900; font-size: 14px; }
-      input, select { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 13px 12px; font: inherit; background: white; color: var(--ink); min-width: 0; }
-      input:disabled { background: #eef1f0; color: #8a9693; }
-      small { color: var(--muted); font-weight: 700; }
+      label { display: grid; gap: 10px; font-weight: 950; font-size: 17px; line-height: 1.1; }
+      input, select { width: 100%; height: 62px; border: 1.5px solid var(--line); border-radius: 13px; padding: 0 18px; font: inherit; font-weight: 850; background: var(--field); color: var(--ink); min-width: 0; outline: none; }
+      input:focus, select:focus { border-color: #a9c6bc; box-shadow: 0 0 0 4px rgba(169,198,188,.22); }
+      input:disabled { background: var(--disabled); color: #8a9693; }
+      small { color: var(--muted); font-weight: 850; font-size: 13px; }
       .required { color: var(--brand); }
-      .status-box { min-height: 48px; border: 1px solid var(--line); border-radius: 10px; padding: 13px 12px; background: #f7faf8; display: flex; align-items: center; justify-content: space-between; font-weight: 900; }
+      .status-box { min-height: 62px; border: 1.5px solid var(--line); border-radius: 13px; padding: 0 18px; background: #f7faf8; display: flex; align-items: center; justify-content: space-between; font-weight: 950; }
       .registry-actions { grid-column: 1 / -1; }
       aside { display: grid; align-content: start; gap: 16px; }
-      aside section { padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+      aside section { padding-bottom: 22px; border-bottom: 1px solid var(--line); }
       aside section:last-child { border-bottom: 0; padding-bottom: 0; }
-      h2 { margin: 0 0 10px; font-size: 18px; }
-      .error { background: #fff1f0; color: var(--bad); padding: 11px; border-radius: 10px; font-weight: 800; margin-top: 8px; }
-      .success { background: #ecfdf3; color: var(--ok); padding: 11px; border-radius: 10px; font-weight: 800; }
-      li { margin: 10px 0; color: var(--muted); font-weight: 760; }
-      @media (max-width: 980px) { header.panel, .grid { grid-template-columns: 1fr; } header.panel { display: grid; } .section { grid-template-columns: 1fr; } main { padding: 14px; } }
+      h2 { margin: 0 0 18px; font-size: 29px; line-height: 1.05; font-weight: 950; }
+      #validationMode { margin: 0 0 14px; color: var(--ink); font-weight: 850; font-size: 17px; }
+      .error { background: var(--danger-bg); color: var(--bad); padding: 18px; border-radius: 12px; font-weight: 950; margin-top: 12px; font-size: 18px; line-height: 1.18; }
+      .success { background: #ecfdf3; color: var(--ok); padding: 18px; border-radius: 12px; font-weight: 950; font-size: 18px; }
+      ul { margin: 0; padding-left: 24px; }
+      li { margin: 13px 0; color: var(--muted); font-weight: 900; font-size: 18px; line-height: 1.18; }
+      @media (max-width: 1180px) { header.panel, .grid { grid-template-columns: 1fr; } .actions { justify-content: start; grid-template-columns: 1fr; } .actions > button[data-registry], .actions > .primary { grid-column: auto; justify-self: stretch; } .section { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (max-width: 700px) { main { padding: 14px; } header.panel, form.panel, aside.panel { padding: 18px; border-radius: 18px; } h1 { font-size: 36px; } .sub { font-size: 17px; } .section { grid-template-columns: 1fr; } .langs button { width: 58px; } button { width: 100%; } }
     </style>
   </head>
   <body>
