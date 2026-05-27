@@ -370,6 +370,10 @@ function renderAmlPage() {
       input:disabled { background: var(--disabled); color: #8a9693; }
       small { color: var(--muted); font-weight: 750; font-size: 12px; }
       .required { color: var(--bad); }
+      .invalid-field { border-color: var(--bad) !important; box-shadow: 0 0 0 3px rgba(159,18,57,.10) !important; background: #fff8fa; }
+      .field-error { color: var(--bad); font-weight: 900; font-size: 12px; line-height: 1.25; }
+      .form-notice { grid-column: 1 / -1; border: 1px solid #f0c8d2; border-left: 4px solid var(--bad); background: var(--danger-bg); color: var(--bad); border-radius: 12px; padding: 12px 14px; font-weight: 900; line-height: 1.3; }
+      .form-notice[hidden] { display: none; }
       .status-box { min-height: 54px; border: 1px solid var(--line); border-radius: 10px; padding: 0 14px; background: var(--disabled); display: flex; align-items: center; justify-content: space-between; font-weight: 850; }
       .registry-actions { grid-column: 1 / -1; }
       aside { display: grid; align-content: start; gap: 16px; }
@@ -427,6 +431,7 @@ function renderAmlPage() {
 
         <section class="grid">
           <form class="panel">
+            <div id="formNotice" class="form-notice" hidden>გთხოვთ შეავსოთ მონიშნული სავალდებულო ველები.</div>
             <div class="section">
               <div class="section-title"><h2>ფიზიკური პირის მონაცემები</h2><span>OLD AML baseline</span></div>
               <label><span><span data-i18n="firstName">სახელი</span><span class="required"> *</span></span><input id="firstName" /></label>
@@ -448,7 +453,7 @@ function renderAmlPage() {
               <div class="section-title"><h2>დოკუმენტი და სამოქალაქო რეესტრი</h2><span>სტატუსი read-only</span></div>
               <label><span><span data-i18n="documentType">დოკუმენტის ტიპი</span><span class="required"> *</span></span><select id="documentType"></select></label>
               <label><span data-i18n="documentNumber">დოკუმენტის ნომერი</span><input id="documentNumber" /></label>
-              <label><span data-i18n="documentStatus">დოკუმენტის სტატუსი</span><div class="status-box"><span id="documentStatusText">არ არის გადამოწმებული</span><span>🔒</span></div><small data-i18n="readOnly">ხელით არ რედაქტირდება</small></label>
+              <label><span data-i18n="documentStatus">დოკუმენტის სტატუსი</span><div id="documentStatusBox" class="status-box"><span id="documentStatusText">არ არის გადამოწმებული</span><span>🔒</span></div><small data-i18n="readOnly">ხელით არ რედაქტირდება</small></label>
               <div class="registry-actions">
                 <button type="button" data-registry="active" data-i18n="civilActive">სამოქალაქო რეესტრი: აქტიური</button>
                 <button type="button" data-registry="inactive" data-i18n="civilInactive">სამოქალაქო რეესტრი: არააქტიური</button>
@@ -473,11 +478,6 @@ function renderAmlPage() {
           </form>
 
           <aside class="panel">
-            <section>
-              <h2 id="validationTitle">შესავსებია</h2>
-              <p id="validationMode">ცოცხალი ვალიდაცია</p>
-              <div id="errors"></div>
-            </section>
             <section>
               <h2>რისკის სქორინგი</h2>
               <div id="riskBox"></div>
@@ -548,41 +548,70 @@ function renderAmlPage() {
         node.innerHTML = values.map((value, index) => '<option value="' + (index ? value : "") + '">' + (value || copy[state.lang].choose) + '</option>').join("");
         if (values.includes(selected)) node.value = selected;
       }
+      function clearInlineValidation() {
+        document.querySelectorAll(".field-error").forEach((node) => node.remove());
+        document.querySelectorAll(".invalid-field").forEach((node) => node.classList.remove("invalid-field"));
+      }
+      function addFieldError(id, message) {
+        const field = id === "documentStatusBox" ? el("documentStatusBox") : el(id);
+        if (!field) return;
+        field.classList.add("invalid-field");
+        const label = field.closest("label") || field.parentElement;
+        if (!label || label.querySelector(".field-error")) return;
+        const help = document.createElement("small");
+        help.className = "field-error";
+        help.textContent = message;
+        label.appendChild(help);
+      }
+      function showInlineValidation(fieldErrors) {
+        clearInlineValidation();
+        fieldErrors.forEach((item) => addFieldError(item.id, item.message));
+        const notice = el("formNotice");
+        if (fieldErrors.length && state.submitted) {
+          notice.hidden = false;
+          notice.style.borderLeftColor = "var(--bad)";
+          notice.style.color = "var(--bad)";
+          notice.style.background = "var(--danger-bg)";
+          notice.textContent = "გთხოვთ შეავსოთ მონიშნული სავალდებულო ველები. გაგრძელება შეუძლებელია სანამ ფორმა სწორად არ შეივსება.";
+        } else {
+          notice.hidden = true;
+        }
+      }
       function validate() {
-        const c = copy[state.lang], errors = [];
-        if (!el("firstName").value.trim()) errors.push(c.errors[0]);
-        if (!el("lastName").value.trim()) errors.push(c.errors[1]);
-        if (el("citizenship").value === "საქართველო" && !/^\\d{11}$/.test(el("personalId").value)) errors.push(c.errors[2]);
-        if (!el("birthDate").value) errors.push("დაბადების თარიღი სავალდებულოა.");
+        const c = copy[state.lang], fieldErrors = [];
+        const addError = (id, message) => fieldErrors.push({ id, message });
+        if (!el("firstName").value.trim()) addError("firstName", c.errors[0]);
+        if (!el("lastName").value.trim()) addError("lastName", c.errors[1]);
+        if (el("citizenship").value === "საქართველო" && !/^\\d{11}$/.test(el("personalId").value)) addError("personalId", c.errors[2]);
+        if (!el("birthDate").value) addError("birthDate", "დაბადების თარიღი სავალდებულოა.");
         if (el("birthDate").value) {
           const birth = new Date(el("birthDate").value + "T00:00:00");
           const now = new Date();
           let age = now.getFullYear() - birth.getFullYear();
           const month = now.getMonth() - birth.getMonth();
           if (month < 0 || (month === 0 && now.getDate() < birth.getDate())) age -= 1;
-          if (age < 18) errors.push("ასაკი <18, რეგისტრაცია შეუძლებელია.");
+          if (age < 18) addError("birthDate", "ასაკი <18, რეგისტრაცია შეუძლებელია.");
         }
-        if (!el("gender").value) errors.push("სქესი სავალდებულოა.");
-        if (!el("legalAddress").value.trim()) errors.push(c.errors[3]);
-        if (!el("actualAddress").value.trim()) errors.push(c.errors[4]);
-        if (!/^\\+\\d{8,15}$/.test(el("phone").value.trim())) errors.push("ტელეფონი უნდა იყოს E.164 ფორმატში, მაგალითად +995555123456.");
-        if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(el("email").value.trim())) errors.push("ელ. ფოსტა არასწორია.");
-        if (state.documentStatus !== "active") errors.push(c.errors[5]);
-        if (!el("activityStatus").value) errors.push(c.errors[6]);
+        if (!el("gender").value) addError("gender", "სქესი სავალდებულოა.");
+        if (!el("legalAddress").value.trim()) addError("legalAddress", c.errors[3]);
+        if (!el("actualAddress").value.trim()) addError("actualAddress", c.errors[4]);
+        if (!/^\\+\\d{8,15}$/.test(el("phone").value.trim())) addError("phone", "ტელეფონი უნდა იყოს E.164 ფორმატში, მაგალითად +995555123456.");
+        if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(el("email").value.trim())) addError("email", "ელ. ფოსტა არასწორია.");
+        if (state.documentStatus !== "active") addError("documentStatusBox", c.errors[5]);
+        if (!el("activityStatus").value) addError("activityStatus", c.errors[6]);
         if (el("activityStatus").value === "employed") {
-          if (!el("employerName").value.trim()) errors.push(c.errors[7]);
-          if (!el("position").value.trim()) errors.push(c.errors[8]);
-          if (!el("employerBusinessField").value.trim()) errors.push(c.errors[9]);
+          if (!el("employerName").value.trim()) addError("employerName", c.errors[7]);
+          if (!el("position").value.trim()) addError("position", c.errors[8]);
+          if (!el("employerBusinessField").value.trim()) addError("employerBusinessField", c.errors[9]);
         }
-        if (!el("incomeSource").value) errors.push(c.errors[10]);
-        if (!el("expectedPremium").value) errors.push(c.errors[11]);
-        if (!el("productType").value) errors.push("საქმიანი ურთიერთობის მიზანი / პროდუქტის ტიპი სავალდებულოა.");
-        if (!el("businessSector").value) errors.push("საქმიანობის სფერო სავალდებულოა.");
-        if (el("pepStatus").value !== "No" && !el("pepDetails").value.trim()) errors.push("PEP/RCA სტატუსის შემთხვევაში დეტალები სავალდებულოა.");
-        el("validationTitle").textContent = errors.length ? c.todo : c.ready;
-        el("validationMode").textContent = state.submitted ? c.checkResult : c.liveValidation;
-        el("errors").innerHTML = errors.length ? errors.map((error) => '<div class="error">' + error + '</div>').join("") : '<div class="success">' + c.allDone + '</div>';
+        if (!el("incomeSource").value) addError("incomeSource", c.errors[10]);
+        if (!el("expectedPremium").value) addError("expectedPremium", c.errors[11]);
+        if (!el("productType").value) addError("productType", "საქმიანი ურთიერთობის მიზანი / პროდუქტის ტიპი სავალდებულოა.");
+        if (!el("businessSector").value) addError("businessSector", "საქმიანობის სფერო სავალდებულოა.");
+        if (el("pepStatus").value !== "No" && !el("pepDetails").value.trim()) addError("pepDetails", "PEP/RCA სტატუსის შემთხვევაში დეტალები სავალდებულოა.");
+        if (state.submitted) showInlineValidation(fieldErrors);
         renderRisk();
+        return fieldErrors;
       }
       function scoreClient() {
         let score = 0;
@@ -696,7 +725,21 @@ function renderAmlPage() {
         if (registry) { state.documentStatus = registry.dataset.registry; if (!el("documentNumber").value) el("documentNumber").value = "AA1234567"; renderLang(); return; }
         if (event.target.id === "syncSanctions") { syncSanctions().catch((error) => { el("screeningResults").innerHTML = '<span class="badge bad">შეცდომა</span><p>' + escapeUi(error.message) + '</p>'; }); return; }
         if (event.target.id === "screenClient") { screenClient().catch((error) => { el("screeningResults").innerHTML = '<span class="badge bad">შეცდომა</span><p>' + escapeUi(error.message) + '</p>'; }); return; }
-        if (event.target.id === "submitCheck") { state.submitted = true; validate(); }
+        if (event.target.id === "submitCheck") {
+          state.submitted = true;
+          const fieldErrors = validate();
+          if (fieldErrors.length) {
+            const first = fieldErrors[0].id === "documentStatusBox" ? el("documentStatusBox") : el(fieldErrors[0].id);
+            first?.scrollIntoView({ behavior: "smooth", block: "center" });
+            if (first && "focus" in first) first.focus({ preventScroll: true });
+            return;
+          }
+          el("formNotice").hidden = false;
+          el("formNotice").style.borderLeftColor = "var(--ok)";
+          el("formNotice").style.color = "var(--ok)";
+          el("formNotice").style.background = "#ecfdf3";
+          el("formNotice").textContent = "ფორმა სწორად არის შევსებული. შესაძლებელია შემდეგ ეტაპზე გადასვლა.";
+        }
       });
       document.addEventListener("input", validate);
       document.addEventListener("change", validate);
