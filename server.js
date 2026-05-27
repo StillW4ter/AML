@@ -351,10 +351,16 @@ function renderAmlPage() {
       .flow-step strong { font-size: 13px; line-height: 1.15; }
       .flow-step span { color: var(--muted); font-weight: 800; font-size: 11px; line-height: 1.2; }
       .flow-step.active { background: var(--accent-weak); border-color: #a8d3ca; color: var(--accent-ink); }
-      .grid { display: grid; gap: 22px; grid-template-columns: minmax(0, 1fr) 420px; align-items: start; }
-      form.panel, aside.panel { padding: 24px; }
-      .section { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 20px; padding-bottom: 24px; border-bottom: 1px solid var(--line); margin-bottom: 24px; position: relative; }
-      .section:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+      .grid { display: grid; gap: 22px; grid-template-columns: 1fr; align-items: start; }
+      form.panel { padding: 24px; }
+      .form-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 24px; }
+      .step-pill { min-height: 72px; text-align: left; border: 1px solid var(--line); background: #f8fbfa; color: var(--muted); display: grid; gap: 3px; align-content: center; }
+      .step-pill strong { color: var(--ink); font-size: 14px; }
+      .step-pill span { font-size: 12px; font-weight: 800; }
+      .step-pill.active { background: var(--accent-weak); border-color: #9dccbf; color: var(--accent-ink); box-shadow: inset 0 0 0 1px #9dccbf; }
+      .section { display: none; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 20px; padding-bottom: 24px; border-bottom: 1px solid var(--line); margin-bottom: 24px; position: relative; }
+      .section.active-step { display: grid; }
+      .section:last-of-type { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
       .section-title { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 2px; }
       .section-title h2 { margin: 0; font-size: 18px; }
       .section-title span { color: var(--muted); font-size: 12px; font-weight: 900; }
@@ -376,16 +382,18 @@ function renderAmlPage() {
       .form-notice[hidden] { display: none; }
       .status-box { min-height: 54px; border: 1px solid var(--line); border-radius: 10px; padding: 0 14px; background: var(--disabled); display: flex; align-items: center; justify-content: space-between; font-weight: 850; }
       .registry-actions { grid-column: 1 / -1; }
-      aside { display: grid; align-content: start; gap: 16px; }
-      aside section { padding-bottom: 20px; border-bottom: 1px solid var(--line); }
-      aside section:last-child { border-bottom: 0; padding-bottom: 0; }
       h2 { margin: 0 0 14px; font-size: 24px; line-height: 1.08; font-weight: 950; }
-      #validationMode { margin: 0 0 12px; color: var(--muted); font-weight: 800; font-size: 14px; }
       .error { background: var(--danger-bg); color: var(--bad); padding: 13px 14px; border-radius: 10px; border-left: 4px solid var(--bad); font-weight: 860; margin-top: 8px; font-size: 15px; line-height: 1.25; }
       .success { background: #ecfdf3; color: var(--ok); padding: 13px 14px; border-radius: 10px; border-left: 4px solid var(--ok); font-weight: 860; font-size: 15px; }
       .screening-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
       .screening-actions button { min-height: 42px; padding: 10px 12px; font-size: 13px; }
       .screening-result { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #f8fbfa; display: grid; gap: 8px; }
+      .review-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+      .review-grid .screening-result { align-content: start; }
+      .report-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+      .form-actions { display: flex; justify-content: space-between; gap: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+      .form-actions .right-actions { display: flex; gap: 10px; }
+      button[hidden] { display: none; }
       .screening-result strong { font-size: 14px; }
       .screening-result p { margin: 0; color: var(--muted); font-size: 12px; font-weight: 800; line-height: 1.35; }
       .badge { display: inline-flex; width: fit-content; align-items: center; border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 950; background: var(--accent-weak); color: var(--accent-ink); }
@@ -393,8 +401,8 @@ function renderAmlPage() {
       .badge.warn { background: #eef6ff; color: #0f5e8a; }
       ul { margin: 0; padding-left: 21px; }
       li { margin: 11px 0; color: var(--muted); font-weight: 800; font-size: 15px; line-height: 1.28; }
-      @media (max-width: 1180px) { header.panel, .grid { grid-template-columns: 1fr; } .actions { min-width: 0; } .section { grid-template-columns: repeat(2, minmax(0, 1fr)); } .workflow, .module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-      @media (max-width: 700px) { main { padding: 14px; } header.panel, form.panel, aside.panel { padding: 18px; border-radius: 16px; } h1 { font-size: 32px; } .sub { font-size: 15px; } .section { grid-template-columns: 1fr; } button { width: 100%; } }
+      @media (max-width: 1180px) { header.panel { grid-template-columns: 1fr; } .actions { min-width: 0; } .section { grid-template-columns: repeat(2, minmax(0, 1fr)); } .workflow, .module-grid, .form-steps, .review-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (max-width: 700px) { main { padding: 14px; } header.panel, form.panel { padding: 18px; border-radius: 16px; } h1 { font-size: 32px; } .sub { font-size: 15px; } .section, .form-steps, .review-grid, .report-actions { grid-template-columns: 1fr; } .form-actions, .form-actions .right-actions { display: grid; grid-template-columns: 1fr; } button { width: 100%; } }
     </style>
   </head>
   <body>
@@ -432,7 +440,13 @@ function renderAmlPage() {
         <section class="grid">
           <form class="panel">
             <div id="formNotice" class="form-notice" hidden>გთხოვთ შეავსოთ მონიშნული სავალდებულო ველები.</div>
-            <div class="section">
+            <div class="form-steps" aria-label="Form steps">
+              <button type="button" class="step-pill active" data-step-target="1"><strong>1. პირადი მონაცემები</strong><span>ვინ არის კლიენტი</span></button>
+              <button type="button" class="step-pill" data-step-target="2"><strong>2. დოკუმენტი</strong><span>რეესტრი და სტატუსი</span></button>
+              <button type="button" class="step-pill" data-step-target="3"><strong>3. KYC / რისკი</strong><span>შემოსავალი და საქმიანობა</span></button>
+              <button type="button" class="step-pill" data-step-target="4"><strong>4. სკრინინგი / ანგარიში</strong><span>UN შემოწმება და ექსპორტი</span></button>
+            </div>
+            <div class="section active-step" data-step="1">
               <div class="section-title"><h2>ფიზიკური პირის მონაცემები</h2><span>OLD AML baseline</span></div>
               <label><span><span data-i18n="firstName">სახელი</span><span class="required"> *</span></span><input id="firstName" /></label>
               <label><span><span data-i18n="lastName">გვარი</span><span class="required"> *</span></span><input id="lastName" /></label>
@@ -449,7 +463,7 @@ function renderAmlPage() {
               <label><span>საგადასახადო ნომერი (TIN)</span><input id="tin" /></label>
               <label class="wide"><span>პასპორტის/პირადობის ასლი</span><input id="idScan" type="file" /></label>
             </div>
-            <div class="section">
+            <div class="section" data-step="2">
               <div class="section-title"><h2>დოკუმენტი და სამოქალაქო რეესტრი</h2><span>სტატუსი read-only</span></div>
               <label><span><span data-i18n="documentType">დოკუმენტის ტიპი</span><span class="required"> *</span></span><select id="documentType"></select></label>
               <label><span data-i18n="documentNumber">დოკუმენტის ნომერი</span><input id="documentNumber" /></label>
@@ -460,7 +474,7 @@ function renderAmlPage() {
                 <button type="button" data-registry="timeout" data-i18n="timeout">Timeout</button>
               </div>
             </div>
-            <div class="section">
+            <div class="section" data-step="3">
               <div class="section-title"><h2>KYC და რისკის საწყისი ფაქტორები</h2><span>დასაქმებულზე ველები აქტიურდება</span></div>
               <label><span><span data-i18n="activityStatus">საქმიანობის სტატუსი</span><span class="required"> *</span></span><select id="activityStatus"></select></label>
               <label><span><span data-i18n="employerName">დამსაქმებელი ორგანიზაცია</span><span class="required employed-only"> *</span></span><input id="employerName" disabled /><small data-i18n="activatesOnEmployed">აქტიურდება სტატუსზე: დასაქმებული</small></label>
@@ -475,37 +489,55 @@ function renderAmlPage() {
               <label class="wide"><span>PEP დეტალები</span><input id="pepDetails" /></label>
               <label class="full"><span>KYC დოკუმენტები</span><input id="supportingDocs" type="file" multiple /></label>
             </div>
+            <div class="section" data-step="4">
+              <div class="section-title"><h2>სკრინინგი და ანგარიში</h2><span>შემოწმება, გადაწყვეტილება, ექსპორტი</span></div>
+              <div class="review-grid full">
+                <section class="screening-result">
+                  <h2>რისკის სქორინგი</h2>
+                  <div id="riskBox"></div>
+                </section>
+                <section class="screening-result">
+                  <h2>სანქციების სკრინინგი</h2>
+                  <p id="sanctionsStatus" style="margin:0;color:var(--muted);font-weight:800;font-size:13px">UN სია ჯერ არ არის ჩატვირთული.</p>
+                  <div class="screening-actions">
+                    <button type="button" id="syncSanctions">UN სიის განახლება</button>
+                    <button type="button" class="primary" id="screenClient">კლიენტის შემოწმება</button>
+                  </div>
+                  <div id="screeningResults" class="screening-result">
+                    <span class="badge">მზად არის შემოწმებისთვის</span>
+                    <p>შემოწმება ადარებს სახელს, alias-ებს, დაბადების თარიღს, მოქალაქეობას, დოკუმენტს და მისამართს UN Security Council Consolidated List-თან.</p>
+                  </div>
+                </section>
+                <section class="screening-result">
+                  <h2>ანგარიში</h2>
+                  <p id="reportSummary">შეავსეთ ფორმა, შემდეგ ჩამოტვირთეთ CSV ან გახსენით ბეჭდვის ფანჯარა PDF-ად შესანახად.</p>
+                  <div class="report-actions">
+                    <button type="button" id="downloadCsv">CSV ჩამოტვირთვა</button>
+                    <button type="button" id="printReport">PDF / ბეჭდვა</button>
+                  </div>
+                </section>
+                <section class="screening-result">
+                  <h2 data-i18n="implementation">მოთხოვნების სტატუსი</h2>
+                  <ul>
+                    <li id="countryCount">Excel ფაილიდან დამატებულია ${countries.length} ქვეყანა.</li>
+                    <li data-i18n="legalDone">იურიდიული მისამართი დამატებულია.</li>
+                    <li data-i18n="statusDone">დოკუმენტის სტატუსი locked/read-only რეჟიმშია.</li>
+                    <li data-i18n="kycDone">დასაქმებულზე დამსაქმებელი, თანამდებობა და სფერო სავალდებულოა.</li>
+                    <li>ძველი AML დოკუმენტაციიდან დაბრუნებულია KYC, PEP/RCA და რისკის სქორინგის ძირითადი ველები.</li>
+                    <li>დამატებულია UN სანქციების ავტომატური განახლება და კლიენტის blacklist screening.</li>
+                    <li>დამატებულია CSV და PDF/ბეჭდვის ანგარიში.</li>
+                  </ul>
+                </section>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="button" id="prevStep">უკან</button>
+              <div class="right-actions">
+                <button type="button" class="primary" id="nextStep">შემდეგი</button>
+                <button type="button" class="primary" id="finalSubmit" hidden>შემოწმება და შენახვა</button>
+              </div>
+            </div>
           </form>
-
-          <aside class="panel">
-            <section>
-              <h2>რისკის სქორინგი</h2>
-              <div id="riskBox"></div>
-            </section>
-            <section>
-              <h2>სანქციების სკრინინგი</h2>
-              <p id="sanctionsStatus" style="margin:0;color:var(--muted);font-weight:800;font-size:13px">UN სია ჯერ არ არის ჩატვირთული.</p>
-              <div class="screening-actions">
-                <button type="button" id="syncSanctions">UN სიის განახლება</button>
-                <button type="button" class="primary" id="screenClient">კლიენტის შემოწმება</button>
-              </div>
-              <div id="screeningResults" class="screening-result">
-                <span class="badge">მზად არის შემოწმებისთვის</span>
-                <p>შემოწმება ადარებს სახელს, alias-ებს, დაბადების თარიღს, მოქალაქეობას, დოკუმენტს და მისამართს UN Security Council Consolidated List-თან.</p>
-              </div>
-            </section>
-            <section>
-              <h2 data-i18n="implementation">მოთხოვნების სტატუსი</h2>
-              <ul>
-                <li id="countryCount">Excel ფაილიდან დამატებულია ${countries.length} ქვეყანა.</li>
-                <li data-i18n="legalDone">იურიდიული მისამართი დამატებულია.</li>
-                <li data-i18n="statusDone">დოკუმენტის სტატუსი locked/read-only რეჟიმშია.</li>
-                <li data-i18n="kycDone">დასაქმებულზე დამსაქმებელი, თანამდებობა და სფერო სავალდებულოა.</li>
-                <li>ძველი AML დოკუმენტაციიდან დაბრუნებულია KYC, PEP/RCA და რისკის სქორინგის ძირითადი ველები.</li>
-                <li>დამატებულია UN სანქციების ავტომატური განახლება და კლიენტის blacklist screening.</li>
-              </ul>
-            </section>
-          </aside>
         </section>
 
         <section class="panel" style="padding:24px">
@@ -528,7 +560,7 @@ function renderAmlPage() {
     </main>
     <script>
       const countriesCount = ${countries.length};
-      const state = { lang: "ka", documentStatus: "not_checked", submitted: false };
+      const state = { lang: "ka", documentStatus: "not_checked", submitted: false, step: 1, saved: false, screeningResult: null };
       const copy = {
         ka: { eyebrow:"AML მოდული · ფიზიკური პირის რეგისტრაცია", title:"კლიენტის რეგისტრაციის ფორმა", subtitle:"მოქალაქეობა, იურიდიული მისამართი, რეესტრის სტატუსი და KYC ველები მზად არის ოპერატორის სამუშაო პროცესისთვის.", registryActive:"რეესტრიდან აქტიური სტატუსი", validateSave:"შემოწმება და შენახვა", firstName:"სახელი", lastName:"გვარი", personalId:"პირადი ნომერი", personalIdHelp:"საქართველოს მოქალაქისთვის ზუსტად 11 ციფრი", birthDate:"დაბადების თარიღი", citizenship:"მოქალაქეობა", secondCitizenship:"მეორე მოქალაქეობა", legalAddress:"იურიდიული მისამართი", actualAddress:"ფაქტიური მისამართი", documentType:"დოკუმენტის ტიპი", documentNumber:"დოკუმენტის ნომერი", documentStatus:"დოკუმენტის სტატუსი", readOnly:"ხელით არ რედაქტირდება", civilActive:"სამოქალაქო რეესტრი: აქტიური", civilInactive:"სამოქალაქო რეესტრი: არააქტიური", timeout:"Timeout", activityStatus:"საქმიანობის სტატუსი", employerName:"დამსაქმებელი ორგანიზაცია", position:"თანამდებობა", employerBusinessField:"დამსაქმებლის საქმიანობის სფერო", activatesOnEmployed:"აქტიურდება სტატუსზე: დასაქმებული", incomeSource:"შემოსავლის წყარო", expectedPremium:"მოსალოდნელი წლიური პრემია", implementation:"მოთხოვნების სტატუსი", legalDone:"იურიდიული მისამართი დამატებულია.", statusDone:"დოკუმენტის სტატუსი locked/read-only რეჟიმშია.", kycDone:"დასაქმებულზე დამსაქმებელი, თანამდებობა და სფერო სავალდებულოა.", todo:"შესავსებია", ready:"ფორმა მზად არის", liveValidation:"ცოცხალი ვალიდაცია", checkResult:"შემოწმების შედეგი", allDone:"ყველა სავალდებულო ველი შევსებულია.", countryCount:"Excel ფაილიდან დამატებულია " + countriesCount + " ქვეყანა.", choose:"აირჩიეთ", none:"არ აქვს", statuses:{not_checked:"არ არის გადამოწმებული", active:"აქტიური", inactive:"არ არის აქტიური", timeout:"რეესტრიდან პასუხი ვერ მივიღეთ"}, documentTypes:[["id_card","პირადობის მოწმობა"],["residence","ბინადრობის მოწმობა"],["temporary_residence","დროებითი ბინადრობის მოწმობა"],["passport","პასპორტი"]], activities:[["","აირჩიეთ"],["employed","დასაქმებული"],["business_owner","ბიზნესის მფლობელი"],["sole_proprietor","ინდ. მეწარმე"],["self_employed","თვითდასაქმებული"],["unemployed","უმუშევარი"],["student","სტუდენტი"],["retired","პენსიონერი"]], income:["","ხელფასი","დივიდენდი","იჯარა","პენსია","სხვა"], errors:["სახელი სავალდებულოა.","გვარი სავალდებულოა.","საქართველოს მოქალაქისთვის პირადი ნომერი უნდა იყოს ზუსტად 11 ციფრი.","იურიდიული მისამართი სავალდებულოა.","ფაქტიური მისამართი სავალდებულოა.","დოკუმენტის სტატუსი უნდა წამოვიდეს სამოქალაქო რეესტრიდან და იყოს აქტიური.","საქმიანობის სტატუსი სავალდებულოა.","დასაქმებულისთვის დამსაქმებელი ორგანიზაცია სავალდებულოა.","დასაქმებულისთვის თანამდებობა სავალდებულოა.","დასაქმებულისთვის საქმიანობის სფერო სავალდებულოა.","შემოსავლის წყარო სავალდებულოა.","მოსალოდნელი წლიური პრემია სავალდებულოა."] },
         en: { eyebrow:"AML module · Individual registration", title:"Client registration form", subtitle:"Citizenship, legal address, registry status, and KYC fields are ready for the employee workflow.", registryActive:"Mark active from registry", validateSave:"Validate and save", firstName:"First name", lastName:"Last name", personalId:"Personal ID", personalIdHelp:"Exactly 11 digits for Georgian citizens", birthDate:"Date of birth", citizenship:"Citizenship", secondCitizenship:"Second citizenship", legalAddress:"Legal address", actualAddress:"Actual address", documentType:"Document type", documentNumber:"Document number", documentStatus:"Document status", readOnly:"Not manually editable", civilActive:"Civil Registry: active", civilInactive:"Civil Registry: inactive", timeout:"Timeout", activityStatus:"Employment status", employerName:"Employer organization", position:"Position", employerBusinessField:"Employer business field", activatesOnEmployed:"Enabled when status is Employed", incomeSource:"Source of income", expectedPremium:"Expected annual premium", implementation:"Request status", legalDone:"Legal address field added.", statusDone:"Document status is locked/read-only.", kycDone:"Employer, position, and business field are required for Employed clients.", todo:"Needs input", ready:"Form is ready", liveValidation:"Live validation", checkResult:"Validation result", allDone:"All required fields are complete.", countryCount:countriesCount + " countries imported from Excel.", choose:"Choose", none:"None", statuses:{not_checked:"Not checked", active:"Active", inactive:"Inactive", timeout:"No registry response"}, documentTypes:[["id_card","ID card"],["residence","Residence card"],["temporary_residence","Temporary residence card"],["passport","Passport"]], activities:[["","Choose"],["employed","Employed"],["business_owner","Business owner"],["sole_proprietor","Sole proprietor"],["self_employed","Self-employed"],["unemployed","Unemployed"],["student","Student"],["retired","Retired"]], income:["","Salary","Dividend","Rent","Pension","Other"], errors:["First name is required.","Last name is required.","Personal ID must be exactly 11 digits for Georgian citizens.","Legal address is required.","Actual address is required.","Document status must come from the Civil Registry and be active.","Employment status is required.","Employer organization is required for Employed clients.","Position is required for Employed clients.","Employer business field is required for Employed clients.","Source of income is required.","Expected annual premium is required."] },
@@ -537,6 +569,11 @@ function renderAmlPage() {
       };
       const highRiskCountries = ["რუსეთის ფედერაცია", "ირანი (ისლამური რესპუბლიკა)", "სირიის არაბთა რესპუბლიკა", "კორეის სახალხო დემოკრატიული რესპუბლიკა"];
       const ids = ["firstName","lastName","personalId","birthDate","gender","citizenship","legalAddress","actualAddress","phone","email","taxResidence","tin","activityStatus","employerName","position","employerBusinessField","incomeSource","expectedPremium","productType","businessSector","annualIncome","pepStatus","pepDetails"];
+      const fieldStep = {
+        firstName: 1, lastName: 1, personalId: 1, birthDate: 1, gender: 1, citizenship: 1, legalAddress: 1, actualAddress: 1, phone: 1, email: 1,
+        documentStatusBox: 2,
+        activityStatus: 3, employerName: 3, position: 3, employerBusinessField: 3, incomeSource: 3, expectedPremium: 3, productType: 3, businessSector: 3, pepDetails: 3,
+      };
       const el = (id) => document.getElementById(id);
       function fillSelect(id, pairs) {
         const node = el(id), selected = node.value;
@@ -609,9 +646,30 @@ function renderAmlPage() {
         if (!el("productType").value) addError("productType", "საქმიანი ურთიერთობის მიზანი / პროდუქტის ტიპი სავალდებულოა.");
         if (!el("businessSector").value) addError("businessSector", "საქმიანობის სფერო სავალდებულოა.");
         if (el("pepStatus").value !== "No" && !el("pepDetails").value.trim()) addError("pepDetails", "PEP/RCA სტატუსის შემთხვევაში დეტალები სავალდებულოა.");
-        if (state.submitted) showInlineValidation(fieldErrors);
+        if (state.submitted) showInlineValidation(fieldErrors.filter((item) => (fieldStep[item.id] || 1) === state.step));
         renderRisk();
+        updateReportSummary();
         return fieldErrors;
+      }
+      function errorsForStep(step) {
+        return validate().filter((item) => (fieldStep[item.id] || 1) === step);
+      }
+      function focusFirstError(fieldErrors) {
+        const firstError = fieldErrors[0];
+        if (!firstError) return;
+        const first = firstError.id === "documentStatusBox" ? el("documentStatusBox") : el(firstError.id);
+        first?.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (first && "focus" in first) first.focus({ preventScroll: true });
+      }
+      function goToStep(step) {
+        state.step = Math.max(1, Math.min(4, step));
+        document.querySelectorAll("[data-step]").forEach((section) => section.classList.toggle("active-step", Number(section.dataset.step) === state.step));
+        document.querySelectorAll("[data-step-target]").forEach((button) => button.classList.toggle("active", Number(button.dataset.stepTarget) === state.step));
+        el("prevStep").hidden = state.step === 1;
+        el("nextStep").hidden = state.step === 4;
+        el("finalSubmit").hidden = state.step !== 4;
+        if (state.submitted) showInlineValidation(validate().filter((item) => (fieldStep[item.id] || 1) === state.step));
+        updateReportSummary();
       }
       function scoreClient() {
         let score = 0;
@@ -660,6 +718,7 @@ function renderAmlPage() {
         el("sanctionsStatus").textContent = "UN სია: " + status.records + " ჩანაწერი (" + status.individuals + " ფიზიკური, " + status.entities + " იურიდიული). წყაროს თარიღი: " + date + ". ბოლო ჩამოტვირთვა: " + fetched + ".";
       }
       function renderScreening(result) {
+        state.screeningResult = result;
         const statusLabel = result.status === "strong_match" ? "ძლიერი დამთხვევა" : result.status === "possible_match" ? "შესაძლო დამთხვევა" : "სუფთა";
         const badgeClass = result.status === "strong_match" ? "bad" : result.status === "possible_match" ? "warn" : "";
         const matches = result.matches.length ? result.matches.map((match) => (
@@ -672,6 +731,85 @@ function renderAmlPage() {
         )).join("") : '<p>UN სიაში მნიშვნელოვანი დამთხვევა არ მოიძებნა.</p>';
         el("screeningResults").innerHTML = '<span class="badge ' + badgeClass + '">' + statusLabel + ' · ' + result.score + '</span>' +
           '<p>შემოწმდა ' + result.recordsChecked + ' UN ჩანაწერი. წყარო: ' + escapeUi(result.sourceName) + '.</p>' + matches;
+        updateReportSummary();
+      }
+      function reportRows() {
+        const risk = scoreClient();
+        const screening = state.screeningResult;
+        const screeningStatus = screening
+          ? (screening.status === "clear" ? "სუფთა" : screening.status === "possible_match" ? "შესაძლო დამთხვევა" : "ძლიერი დამთხვევა") + " (" + screening.score + ")"
+          : "ჯერ არ შემოწმებულა";
+        return [
+          ["სახელი", el("firstName").value],
+          ["გვარი", el("lastName").value],
+          ["პირადი ნომერი", el("personalId").value],
+          ["დაბადების თარიღი", el("birthDate").value],
+          ["მოქალაქეობა", el("citizenship").value],
+          ["მეორე მოქალაქეობა", el("secondCitizenship").value || "არ აქვს"],
+          ["იურიდიული მისამართი", el("legalAddress").value],
+          ["ფაქტიური მისამართი", el("actualAddress").value],
+          ["ტელეფონი", el("phone").value],
+          ["ელ. ფოსტა", el("email").value],
+          ["დოკუმენტის ტიპი", el("documentType").selectedOptions[0]?.textContent || ""],
+          ["დოკუმენტის ნომერი", el("documentNumber").value],
+          ["დოკუმენტის სტატუსი", el("documentStatusText").textContent],
+          ["საქმიანობის სტატუსი", el("activityStatus").selectedOptions[0]?.textContent || ""],
+          ["დამსაქმებელი", el("employerName").value],
+          ["თანამდებობა", el("position").value],
+          ["დამსაქმებლის სფერო", el("employerBusinessField").value],
+          ["შემოსავლის წყარო", el("incomeSource").value],
+          ["მოსალოდნელი წლიური პრემია", el("expectedPremium").value],
+          ["პროდუქტი", el("productType").selectedOptions[0]?.textContent || ""],
+          ["საქმიანობის სფერო", el("businessSector").selectedOptions[0]?.textContent || ""],
+          ["წლიური შემოსავალი", el("annualIncome").value],
+          ["PEP/RCA", el("pepStatus").value],
+          ["PEP დეტალები", el("pepDetails").value],
+          ["რისკი", risk.level + " / " + risk.score + " / " + risk.due],
+          ["სანქციების სკრინინგი", screeningStatus],
+          ["ანგარიშის დრო", new Date().toLocaleString()],
+        ];
+      }
+      function updateReportSummary() {
+        const summary = el("reportSummary");
+        if (!summary) return;
+        const risk = scoreClient();
+        const screeningText = state.screeningResult
+          ? (state.screeningResult.status === "clear" ? "UN სიაში მნიშვნელოვანი დამთხვევა არ არის." : "UN სკრინინგმა მოითხოვა AML ოფიცრის გადამოწმება.")
+          : "UN სკრინინგი ჯერ არ გაშვებულა.";
+        summary.textContent = "ანგარიში მოიცავს კლიენტის მონაცემებს, დოკუმენტის სტატუსს, KYC-ს, რისკს (" + risk.level + " / " + risk.due + ") და სანქციების შედეგს. " + screeningText;
+      }
+      function ensureReportReady() {
+        state.submitted = true;
+        const fieldErrors = validate();
+        if (fieldErrors.length) {
+          goToStep(fieldStep[fieldErrors[0].id] || 1);
+          focusFirstError(errorsForStep(state.step));
+          return false;
+        }
+        return true;
+      }
+      function downloadCsv() {
+        if (!ensureReportReady()) return;
+        const csv = "\ufeff" + reportRows().map((row) => row.map((value) => '"' + String(value || "").replace(/"/g, '""') + '"').join(",")).join("\\n");
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "aml-client-report.csv";
+        document.body.appendChild(link);
+        link.click();
+        URL.revokeObjectURL(link.href);
+        link.remove();
+      }
+      function printReport() {
+        if (!ensureReportReady()) return;
+        const rows = reportRows().map(([label, value]) => "<tr><th>" + escapeUi(label) + "</th><td>" + escapeUi(value) + "</td></tr>").join("");
+        const popup = window.open("", "_blank");
+        if (!popup) {
+          alert("ბრაუზერმა დაბლოკა PDF/ბეჭდვის ფანჯარა.");
+          return;
+        }
+        popup.document.write('<!doctype html><html lang="ka"><head><meta charset="utf-8"><title>AML Report</title><style>body{font-family:Arial,sans-serif;color:#182522;padding:28px}h1{margin:0 0 16px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #d8e4df;padding:10px;text-align:left;vertical-align:top}th{width:32%;background:#f4f8f6}</style></head><body><h1>AML კლიენტის ანგარიში</h1><table>' + rows + '</table><script>window.print();<\\/script></body></html>');
+        popup.document.close();
       }
       async function loadSanctionsStatus() {
         try {
@@ -721,24 +859,46 @@ function renderAmlPage() {
       document.addEventListener("click", (event) => {
         const lang = event.target.closest("[data-lang]");
         if (lang) { state.lang = lang.dataset.lang; renderLang(); return; }
+        const stepTarget = event.target.closest("[data-step-target]");
+        if (stepTarget) {
+          const next = Number(stepTarget.dataset.stepTarget);
+          if (next > state.step) {
+            state.submitted = true;
+            const stepErrors = errorsForStep(state.step);
+            if (stepErrors.length) { showInlineValidation(stepErrors); focusFirstError(stepErrors); return; }
+          }
+          goToStep(next);
+          return;
+        }
         const registry = event.target.closest("[data-registry]");
         if (registry) { state.documentStatus = registry.dataset.registry; if (!el("documentNumber").value) el("documentNumber").value = "AA1234567"; renderLang(); return; }
         if (event.target.id === "syncSanctions") { syncSanctions().catch((error) => { el("screeningResults").innerHTML = '<span class="badge bad">შეცდომა</span><p>' + escapeUi(error.message) + '</p>'; }); return; }
         if (event.target.id === "screenClient") { screenClient().catch((error) => { el("screeningResults").innerHTML = '<span class="badge bad">შეცდომა</span><p>' + escapeUi(error.message) + '</p>'; }); return; }
-        if (event.target.id === "submitCheck") {
+        if (event.target.id === "prevStep") { goToStep(state.step - 1); return; }
+        if (event.target.id === "nextStep") {
+          state.submitted = true;
+          const stepErrors = errorsForStep(state.step);
+          if (stepErrors.length) { showInlineValidation(stepErrors); focusFirstError(stepErrors); return; }
+          goToStep(state.step + 1);
+          return;
+        }
+        if (event.target.id === "downloadCsv") { downloadCsv(); return; }
+        if (event.target.id === "printReport") { printReport(); return; }
+        if (event.target.id === "submitCheck" || event.target.id === "finalSubmit") {
           state.submitted = true;
           const fieldErrors = validate();
           if (fieldErrors.length) {
-            const first = fieldErrors[0].id === "documentStatusBox" ? el("documentStatusBox") : el(fieldErrors[0].id);
-            first?.scrollIntoView({ behavior: "smooth", block: "center" });
-            if (first && "focus" in first) first.focus({ preventScroll: true });
+            goToStep(fieldStep[fieldErrors[0].id] || 1);
+            focusFirstError(errorsForStep(state.step));
             return;
           }
+          state.saved = true;
+          goToStep(4);
           el("formNotice").hidden = false;
           el("formNotice").style.borderLeftColor = "var(--ok)";
           el("formNotice").style.color = "var(--ok)";
           el("formNotice").style.background = "#ecfdf3";
-          el("formNotice").textContent = "ფორმა სწორად არის შევსებული. შესაძლებელია შემდეგ ეტაპზე გადასვლა.";
+          el("formNotice").textContent = "ფორმა სწორად არის შევსებული. ახლა შეგიძლიათ ჩამოტვირთოთ CSV ან PDF/ბეჭდვის ანგარიში.";
         }
       });
       document.addEventListener("input", validate);
@@ -747,6 +907,7 @@ function renderAmlPage() {
       el("personalId").addEventListener("input", (event) => { event.target.value = event.target.value.replace(/\\D/g, ""); });
       renderLang();
       updateKyc();
+      goToStep(1);
       loadSanctionsStatus();
     </script>
   </body>
@@ -760,7 +921,7 @@ async function serveFile(req, res) {
     return;
   }
   if (url.pathname === "/api/version") {
-    sendJson(res, 200, { name: "acton-aml-workbench", version: "0.3.0", mode: "stable-static", screening: true });
+    sendJson(res, 200, { name: "acton-aml-workbench", version: "0.4.0", mode: "guided-form", screening: true, exports: ["csv", "print-pdf"] });
     return;
   }
   if (url.pathname === "/api/sanctions/status") {
