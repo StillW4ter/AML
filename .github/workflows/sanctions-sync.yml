@@ -1,0 +1,21 @@
+name: Sync UN sanctions list
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  sync-un-sanctions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refresh UN sanctions cache
+        run: |
+          curl --fail --show-error --silent --max-time 120 \
+            --request POST \
+            https://aml-kj65.onrender.com/api/sanctions/sync
+
+      - name: Print sync status
+        run: |
+          curl --fail --show-error --silent --max-time 60 \
+            https://aml-kj65.onrender.com/api/sanctions/status

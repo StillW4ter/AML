@@ -4,6 +4,18 @@ const path = require("node:path");
 
 const root = __dirname;
 const port = Number(process.env.PORT || 5173);
+const UN_CONSOLIDATED_XML_URL = "https://scsanctions.un.org/resources/xml/en/consolidated.xml";
+const SANCTIONS_REFRESH_MS = 24 * 60 * 60 * 1000;
+
+let sanctionsCache = {
+  records: [],
+  sourceUrl: UN_CONSOLIDATED_XML_URL,
+  sourceName: "UN Security Council Consolidated List",
+  fetchedAt: null,
+  dateGenerated: null,
+  xmlBytes: 0,
+  error: null,
+};
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -24,6 +36,267 @@ function escapeHtml(value) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function decodeXml(value) {
+  return String(value || "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
+
+function tagValue(block, tag) {
+  const match = block.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, "i"));
+  return match ? decodeXml(match[1].replace(/<[^>]+>/g, " ").trim()) : "";
+}
+
+function tagValues(block, tag) {
+  return [...block.matchAll(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, "gi"))]
+    .map((match) => decodeXml(match[1].replace(/<[^>]+>/g, " ").trim()))
+    .filter(Boolean);
+}
+
+function sectionValues(block, sectionTag, valueTag = "VALUE") {
+  return [...block.matchAll(new RegExp(`<${sectionTag}>([\\s\\S]*?)<\\/${sectionTag}>`, "gi"))]
+    .flatMap((match) => tagValues(match[1], valueTag));
+}
+
+function normalizeText(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\u10a0-\u10ff]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function bigrams(value) {
+  const text = normalizeText(value).replace(/\s/g, "");
+  if (text.length < 2) return text ? [text] : [];
+  const grams = [];
+  for (let index = 0; index < text.length - 1; index += 1) grams.push(text.slice(index, index + 2));
+  return grams;
+}
+
+function stringSimilarity(a, b) {
+  const left = normalizeText(a);
+  const right = normalizeText(b);
+  if (!left || !right) return 0;
+  if (left === right) return 1;
+  if (left.includes(right) || right.includes(left)) return 0.9;
+  const leftTokens = new Set(left.split(" "));
+  const rightTokens = new Set(right.split(" "));
+  const tokenOverlap = [...leftTokens].filter((token) => rightTokens.has(token)).length / Math.max(leftTokens.size, rightTokens.size);
+  const leftGrams = bigrams(left);
+  const rightGrams = bigrams(right);
+  const rightCounts = new Map();
+  rightGrams.forEach((gram) => rightCounts.set(gram, (rightCounts.get(gram) || 0) + 1));
+  let matches = 0;
+  leftGrams.forEach((gram) => {
+    const count = rightCounts.get(gram) || 0;
+    if (count > 0) {
+      matches += 1;
+      rightCounts.set(gram, count - 1);
+    }
+  });
+  const dice = (2 * matches) / Math.max(1, leftGrams.length + rightGrams.length);
+  return Math.max(tokenOverlap, dice);
+}
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean).map((value) => value.trim()).filter(Boolean))];
+}
+
+function parseUnSanctionsXml(xml) {
+  const dateGenerated = xml.match(/dateGenerated="([^"]+)"/)?.[1] || null;
+  const records = [];
+
+  for (const match of xml.matchAll(/<INDIVIDUAL>([\s\S]*?)<\/INDIVIDUAL>/g)) {
+    const block = match[1];
+    const names = unique([tagValue(block, "FIRST_NAME"), tagValue(block, "SECOND_NAME"), tagValue(block, "THIRD_NAME"), tagValue(block, "FOURTH_NAME")]);
+    const aliases = unique([...tagValues(block, "ALIAS_NAME"), tagValue(block, "NAME_ORIGINAL_SCRIPT")]);
+    const documents = unique([...tagValues(block, "NUMBER"), ...tagValues(block, "PASSPORT"), ...tagValues(block, "NATIONAL_IDENTIFICATION_NUMBER")]);
+    const nationalities = unique(sectionValues(block, "NATIONALITY"));
+    const dobs = unique([...tagValues(block, "DATE_OF_BIRTH"), ...tagValues(block, "YEAR"), ...tagValues(block, "FROM_YEAR"), ...tagValues(block, "TO_YEAR")]);
+    const addresses = unique(tagValues(block, "COUNTRY"));
+    const fullName = names.join(" ");
+    records.push({
+      id: tagValue(block, "DATAID") || tagValue(block, "REFERENCE_NUMBER") || `individual-${records.length}`,
+      type: "individual",
+      referenceNumber: tagValue(block, "REFERENCE_NUMBER"),
+      listType: tagValue(block, "UN_LIST_TYPE"),
+      fullName,
+      aliases,
+      names: unique([fullName, ...aliases]),
+      documents,
+      nationalities,
+      dobs,
+      addresses,
+      listedOn: tagValue(block, "LISTED_ON"),
+      comments: tagValue(block, "COMMENTS1"),
+    });
+  }
+
+  for (const match of xml.matchAll(/<ENTITY>([\s\S]*?)<\/ENTITY>/g)) {
+    const block = match[1];
+    const name = tagValue(block, "FIRST_NAME");
+    const aliases = unique([...tagValues(block, "ALIAS_NAME"), tagValue(block, "NAME_ORIGINAL_SCRIPT")]);
+    const addresses = unique([...tagValues(block, "COUNTRY"), ...tagValues(block, "STREET"), ...tagValues(block, "CITY")]);
+    records.push({
+      id: tagValue(block, "DATAID") || tagValue(block, "REFERENCE_NUMBER") || `entity-${records.length}`,
+      type: "entity",
+      referenceNumber: tagValue(block, "REFERENCE_NUMBER"),
+      listType: tagValue(block, "UN_LIST_TYPE"),
+      fullName: name,
+      aliases,
+      names: unique([name, ...aliases]),
+      documents: unique(tagValues(block, "NUMBER")),
+      nationalities: [],
+      dobs: [],
+      addresses,
+      listedOn: tagValue(block, "LISTED_ON"),
+      comments: tagValue(block, "COMMENTS1"),
+    });
+  }
+
+  return { records, dateGenerated };
+}
+
+async function syncSanctionsList(force = false) {
+  const freshEnough = sanctionsCache.fetchedAt && Date.now() - new Date(sanctionsCache.fetchedAt).getTime() < SANCTIONS_REFRESH_MS;
+  if (!force && freshEnough && sanctionsCache.records.length) return sanctionsCache;
+  try {
+    const response = await fetch(UN_CONSOLIDATED_XML_URL, { headers: { "user-agent": "Acton AML screening prototype" } });
+    if (!response.ok) throw new Error(`UN XML download failed with HTTP ${response.status}`);
+    const xml = await response.text();
+    const parsed = parseUnSanctionsXml(xml);
+    sanctionsCache = {
+      records: parsed.records,
+      sourceUrl: UN_CONSOLIDATED_XML_URL,
+      sourceName: "UN Security Council Consolidated List",
+      fetchedAt: new Date().toISOString(),
+      dateGenerated: parsed.dateGenerated,
+      xmlBytes: Buffer.byteLength(xml),
+      error: null,
+    };
+    return sanctionsCache;
+  } catch (error) {
+    sanctionsCache = { ...sanctionsCache, error: error.message, fetchedAt: sanctionsCache.fetchedAt };
+    throw error;
+  }
+}
+
+function screenClientAgainstSanctions(client) {
+  const clientName = unique([client.fullName, [client.firstName, client.lastName].filter(Boolean).join(" "), client.companyName]).join(" ");
+  const clientDob = normalizeText(client.birthDate);
+  const clientNationality = normalizeText(client.citizenship || client.nationality);
+  const clientDocuments = unique([client.personalId, client.documentNumber, client.passportNumber, client.taxId]).map(normalizeText);
+  const clientAddress = normalizeText([client.legalAddress, client.actualAddress, client.address].filter(Boolean).join(" "));
+
+  const matches = sanctionsCache.records.map((record) => {
+    const nameScores = record.names.map((name) => ({ name, score: stringSimilarity(clientName, name) }));
+    const bestName = nameScores.sort((a, b) => b.score - a.score)[0] || { name: "", score: 0 };
+    const reasons = [];
+    let score = Math.round(bestName.score * 75);
+
+    if (bestName.score >= 0.98) reasons.push("ზუსტი სახელის დამთხვევა");
+    else if (bestName.score >= 0.78) reasons.push("მსგავსი სახელი / alias");
+    else if (bestName.score >= 0.62) reasons.push("სუსტი სახელის მსგავსება");
+
+    if (clientDob && record.dobs.some((dob) => normalizeText(dob).includes(clientDob) || clientDob.includes(normalizeText(dob)))) {
+      score += 20;
+      reasons.push("დაბადების თარიღი დაემთხვა");
+    }
+
+    if (clientNationality && record.nationalities.some((nationality) => stringSimilarity(clientNationality, nationality) >= 0.8)) {
+      score += 10;
+      reasons.push("მოქალაქეობა / nationality დაემთხვა");
+    }
+
+    if (clientDocuments.some((doc) => doc && record.documents.some((recordDoc) => normalizeText(recordDoc).includes(doc) || doc.includes(normalizeText(recordDoc))))) {
+      score += 40;
+      reasons.push("დოკუმენტის ან ID ნომერი დაემთხვა");
+    }
+
+    if (clientAddress && record.addresses.some((address) => stringSimilarity(clientAddress, address) >= 0.85)) {
+      score += 10;
+      reasons.push("მისამართის / ქვეყნის დამთხვევა");
+    }
+
+    const finalScore = Math.min(100, score);
+    return {
+      score: finalScore,
+      status: finalScore >= 90 ? "strong_match" : finalScore >= 75 ? "possible_match" : "clear",
+      reasons,
+      matchedName: bestName.name,
+      record: {
+        id: record.id,
+        type: record.type,
+        fullName: record.fullName,
+        aliases: record.aliases.slice(0, 5),
+        referenceNumber: record.referenceNumber,
+        listType: record.listType,
+        listedOn: record.listedOn,
+        comments: record.comments,
+      },
+    };
+  }).filter((match) => match.score >= 60 && match.reasons.length)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8);
+
+  const topScore = matches[0]?.score || 0;
+  const status = topScore >= 90 ? "strong_match" : topScore >= 75 ? "possible_match" : "clear";
+  return {
+    status,
+    score: topScore,
+    checkedAt: new Date().toISOString(),
+    sourceName: sanctionsCache.sourceName,
+    sourceDate: sanctionsCache.dateGenerated,
+    recordsChecked: sanctionsCache.records.length,
+    matches,
+  };
+}
+
+function readRequestJson(req) {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk;
+      if (body.length > 1_000_000) {
+        req.destroy();
+        reject(new Error("Request body too large"));
+      }
+    });
+    req.on("end", () => {
+      if (!body.trim()) resolve({});
+      else {
+        try { resolve(JSON.parse(body)); }
+        catch { reject(new Error("Invalid JSON body")); }
+      }
+    });
+    req.on("error", reject);
+  });
+}
+
+function publicSanctionsStatus() {
+  return {
+    sourceName: sanctionsCache.sourceName,
+    sourceUrl: sanctionsCache.sourceUrl,
+    fetchedAt: sanctionsCache.fetchedAt,
+    dateGenerated: sanctionsCache.dateGenerated,
+    records: sanctionsCache.records.length,
+    individuals: sanctionsCache.records.filter((record) => record.type === "individual").length,
+    entities: sanctionsCache.records.filter((record) => record.type === "entity").length,
+    xmlBytes: sanctionsCache.xmlBytes,
+    error: sanctionsCache.error,
+  };
+}
+
+function sendJson(res, status, body) {
+  send(res, status, JSON.stringify(body), "application/json; charset=utf-8");
 }
 
 function getCountries() {
@@ -106,6 +379,14 @@ function renderAmlPage() {
       #validationMode { margin: 0 0 12px; color: var(--muted); font-weight: 800; font-size: 14px; }
       .error { background: var(--danger-bg); color: var(--bad); padding: 13px 14px; border-radius: 10px; border-left: 4px solid var(--bad); font-weight: 860; margin-top: 8px; font-size: 15px; line-height: 1.25; }
       .success { background: #ecfdf3; color: var(--ok); padding: 13px 14px; border-radius: 10px; border-left: 4px solid var(--ok); font-weight: 860; font-size: 15px; }
+      .screening-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+      .screening-actions button { min-height: 42px; padding: 10px 12px; font-size: 13px; }
+      .screening-result { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #f8fbfa; display: grid; gap: 8px; }
+      .screening-result strong { font-size: 14px; }
+      .screening-result p { margin: 0; color: var(--muted); font-size: 12px; font-weight: 800; line-height: 1.35; }
+      .badge { display: inline-flex; width: fit-content; align-items: center; border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 950; background: var(--accent-weak); color: var(--accent-ink); }
+      .badge.bad { background: var(--danger-bg); color: var(--bad); }
+      .badge.warn { background: #eef6ff; color: #0f5e8a; }
       ul { margin: 0; padding-left: 21px; }
       li { margin: 11px 0; color: var(--muted); font-weight: 800; font-size: 15px; line-height: 1.28; }
       @media (max-width: 1180px) { header.panel, .grid { grid-template-columns: 1fr; } .actions { min-width: 0; } .section { grid-template-columns: repeat(2, minmax(0, 1fr)); } .workflow, .module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -202,6 +483,18 @@ function renderAmlPage() {
               <div id="riskBox"></div>
             </section>
             <section>
+              <h2>სანქციების სკრინინგი</h2>
+              <p id="sanctionsStatus" style="margin:0;color:var(--muted);font-weight:800;font-size:13px">UN სია ჯერ არ არის ჩატვირთული.</p>
+              <div class="screening-actions">
+                <button type="button" id="syncSanctions">UN სიის განახლება</button>
+                <button type="button" class="primary" id="screenClient">კლიენტის შემოწმება</button>
+              </div>
+              <div id="screeningResults" class="screening-result">
+                <span class="badge">მზად არის შემოწმებისთვის</span>
+                <p>შემოწმება ადარებს სახელს, alias-ებს, დაბადების თარიღს, მოქალაქეობას, დოკუმენტს და მისამართს UN Security Council Consolidated List-თან.</p>
+              </div>
+            </section>
+            <section>
               <h2 data-i18n="implementation">მოთხოვნების სტატუსი</h2>
               <ul>
                 <li id="countryCount">Excel ფაილიდან დამატებულია ${countries.length} ქვეყანა.</li>
@@ -209,6 +502,7 @@ function renderAmlPage() {
                 <li data-i18n="statusDone">დოკუმენტის სტატუსი locked/read-only რეჟიმშია.</li>
                 <li data-i18n="kycDone">დასაქმებულზე დამსაქმებელი, თანამდებობა და სფერო სავალდებულოა.</li>
                 <li>ძველი AML დოკუმენტაციიდან დაბრუნებულია KYC, PEP/RCA და რისკის სქორინგის ძირითადი ველები.</li>
+                <li>დამატებულია UN სანქციების ავტომატური განახლება და კლიენტის blacklist screening.</li>
               </ul>
             </section>
           </aside>
@@ -315,6 +609,68 @@ function renderAmlPage() {
         el("riskBox").innerHTML = '<div class="success" style="border-left-color:' + color + ';color:' + color + '">' + risk.level + ' · ' + risk.score + ' · ' + risk.due + '</div>' +
           (risk.reasons.length ? risk.reasons.map((r) => '<div class="error" style="background:#f8fbfa;color:var(--ink);border-left-color:#b7cdc6">+' + r.points + ' · ' + r.reason + '</div>').join("") : '<p style="color:var(--muted);font-weight:800">რისკ-ფაქტორი ჯერ არ დაფიქსირებულა.</p>');
       }
+      function escapeUi(value) {
+        return String(value || "").replace(/[&<>"']/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[char]));
+      }
+      function collectClientForScreening() {
+        return {
+          firstName: el("firstName").value,
+          lastName: el("lastName").value,
+          fullName: [el("firstName").value, el("lastName").value].filter(Boolean).join(" "),
+          birthDate: el("birthDate").value,
+          citizenship: el("citizenship").value,
+          personalId: el("personalId").value,
+          documentNumber: el("documentNumber").value,
+          legalAddress: el("legalAddress").value,
+          actualAddress: el("actualAddress").value,
+        };
+      }
+      function renderSanctionsStatus(status) {
+        const date = status.dateGenerated ? new Date(status.dateGenerated).toLocaleString() : "ჯერ არ არის";
+        const fetched = status.fetchedAt ? new Date(status.fetchedAt).toLocaleString() : "ჯერ არ არის";
+        el("sanctionsStatus").textContent = "UN სია: " + status.records + " ჩანაწერი (" + status.individuals + " ფიზიკური, " + status.entities + " იურიდიული). წყაროს თარიღი: " + date + ". ბოლო ჩამოტვირთვა: " + fetched + ".";
+      }
+      function renderScreening(result) {
+        const statusLabel = result.status === "strong_match" ? "ძლიერი დამთხვევა" : result.status === "possible_match" ? "შესაძლო დამთხვევა" : "სუფთა";
+        const badgeClass = result.status === "strong_match" ? "bad" : result.status === "possible_match" ? "warn" : "";
+        const matches = result.matches.length ? result.matches.map((match) => (
+          '<div class="screening-result">' +
+          '<strong>' + escapeUi(match.record.fullName || match.matchedName) + ' · ' + match.score + '</strong>' +
+          '<p>UN ref: ' + escapeUi(match.record.referenceNumber || match.record.id) + ' · ' + escapeUi(match.record.listType || "UN") + '</p>' +
+          '<p>მიზეზი: ' + escapeUi(match.reasons.join(", ")) + '</p>' +
+          (match.record.aliases.length ? '<p>Aliases: ' + escapeUi(match.record.aliases.join(", ")) + '</p>' : '') +
+          '</div>'
+        )).join("") : '<p>UN სიაში მნიშვნელოვანი დამთხვევა არ მოიძებნა.</p>';
+        el("screeningResults").innerHTML = '<span class="badge ' + badgeClass + '">' + statusLabel + ' · ' + result.score + '</span>' +
+          '<p>შემოწმდა ' + result.recordsChecked + ' UN ჩანაწერი. წყარო: ' + escapeUi(result.sourceName) + '.</p>' + matches;
+      }
+      async function loadSanctionsStatus() {
+        try {
+          const response = await fetch("/api/sanctions/status");
+          renderSanctionsStatus(await response.json());
+        } catch {
+          el("sanctionsStatus").textContent = "UN სიის სტატუსი ვერ ჩაიტვირთა.";
+        }
+      }
+      async function syncSanctions() {
+        el("sanctionsStatus").textContent = "UN სია იტვირთება...";
+        const response = await fetch("/api/sanctions/sync", { method: "POST" });
+        const data = await response.json();
+        renderSanctionsStatus(data);
+        if (!data.ok) throw new Error(data.error || "UN sync failed");
+      }
+      async function screenClient() {
+        el("screeningResults").innerHTML = '<span class="badge">მოწმდება...</span><p>UN blacklist screening მიმდინარეობს.</p>';
+        const response = await fetch("/api/screening/client", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(collectClientForScreening()),
+        });
+        const data = await response.json();
+        if (!data.ok) throw new Error(data.error || "Screening failed");
+        renderScreening(data.result);
+        loadSanctionsStatus();
+      }
       function renderLang() {
         const c = copy[state.lang];
         document.documentElement.lang = state.lang;
@@ -338,6 +694,8 @@ function renderAmlPage() {
         if (lang) { state.lang = lang.dataset.lang; renderLang(); return; }
         const registry = event.target.closest("[data-registry]");
         if (registry) { state.documentStatus = registry.dataset.registry; if (!el("documentNumber").value) el("documentNumber").value = "AA1234567"; renderLang(); return; }
+        if (event.target.id === "syncSanctions") { syncSanctions().catch((error) => { el("screeningResults").innerHTML = '<span class="badge bad">შეცდომა</span><p>' + escapeUi(error.message) + '</p>'; }); return; }
+        if (event.target.id === "screenClient") { screenClient().catch((error) => { el("screeningResults").innerHTML = '<span class="badge bad">შეცდომა</span><p>' + escapeUi(error.message) + '</p>'; }); return; }
         if (event.target.id === "submitCheck") { state.submitted = true; validate(); }
       });
       document.addEventListener("input", validate);
@@ -346,19 +704,48 @@ function renderAmlPage() {
       el("personalId").addEventListener("input", (event) => { event.target.value = event.target.value.replace(/\\D/g, ""); });
       renderLang();
       updateKyc();
+      loadSanctionsStatus();
     </script>
   </body>
 </html>`;
 }
 
-function serveFile(req, res) {
+async function serveFile(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if (url.pathname === "/api/health") {
-    send(res, 200, JSON.stringify({ ok: true, service: "acton-aml-workbench", time: new Date().toISOString() }), "application/json; charset=utf-8");
+    sendJson(res, 200, { ok: true, service: "acton-aml-workbench", time: new Date().toISOString() });
     return;
   }
   if (url.pathname === "/api/version") {
-    send(res, 200, JSON.stringify({ name: "acton-aml-workbench", version: "0.2.0", mode: "stable-static" }), "application/json; charset=utf-8");
+    sendJson(res, 200, { name: "acton-aml-workbench", version: "0.3.0", mode: "stable-static", screening: true });
+    return;
+  }
+  if (url.pathname === "/api/sanctions/status") {
+    sendJson(res, 200, publicSanctionsStatus());
+    return;
+  }
+  if (url.pathname === "/api/sanctions/sync") {
+    try {
+      const force = req.method === "POST" || url.searchParams.get("force") === "1";
+      const cache = await syncSanctionsList(force);
+      sendJson(res, 200, { ok: true, ...publicSanctionsStatus(), cached: cache.records.length > 0 && !force });
+    } catch (error) {
+      sendJson(res, 502, { ok: false, error: error.message, ...publicSanctionsStatus() });
+    }
+    return;
+  }
+  if (url.pathname === "/api/screening/client") {
+    if (req.method !== "POST") {
+      sendJson(res, 405, { ok: false, error: "POST required" });
+      return;
+    }
+    try {
+      const client = await readRequestJson(req);
+      await syncSanctionsList(false);
+      sendJson(res, 200, { ok: true, result: screenClientAgainstSanctions(client) });
+    } catch (error) {
+      sendJson(res, 400, { ok: false, error: error.message });
+    }
     return;
   }
   if (url.pathname === "/aml" || url.pathname === "/aml/") {
