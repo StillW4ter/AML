@@ -295,6 +295,56 @@ function publicSanctionsStatus() {
   };
 }
 
+const clientRegistryPath = path.join(root, "tmp", "aml-client-registry.json");
+
+function normalizePersonalId(value) {
+  return String(value || "").replace(/\D/g, "").trim();
+}
+
+function readClientRegistry() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(clientRegistryPath, "utf8"));
+    return { records: Array.isArray(parsed.records) ? parsed.records : [] };
+  } catch {
+    return { records: [] };
+  }
+}
+
+function writeClientRegistry(registry) {
+  fs.mkdirSync(path.dirname(clientRegistryPath), { recursive: true });
+  fs.writeFileSync(clientRegistryPath, JSON.stringify(registry, null, 2));
+}
+
+function registerClientForIssuance(client) {
+  const personalId = normalizePersonalId(client.personalId);
+  const registrationId = String(client.registrationId || "");
+  if (!personalId) return { ok: false, duplicate: false, error: "Personal ID is required." };
+
+  const registry = readClientRegistry();
+  const duplicate = registry.records.find((record) => record.personalId === personalId && record.registrationId !== registrationId);
+  if (duplicate) {
+    return {
+      ok: false,
+      duplicate: true,
+      error: "A client with this personal ID already exists. Policy issuance is blocked.",
+    };
+  }
+
+  const now = new Date().toISOString();
+  const existing = registry.records.find((record) => record.registrationId === registrationId);
+  const record = {
+    registrationId: registrationId || `aml-${Date.now()}`,
+    personalId,
+    fullName: String(client.fullName || "").trim(),
+    documentNumber: String(client.documentNumber || "").trim(),
+    updatedAt: now,
+  };
+  if (existing) Object.assign(existing, record);
+  else registry.records.push({ ...record, createdAt: now });
+  writeClientRegistry(registry);
+  return { ok: true, personalId };
+}
+
 function sendJson(res, status, body) {
   send(res, status, JSON.stringify(body), "application/json; charset=utf-8");
 }
@@ -391,8 +441,7 @@ function renderAmlPage() {
       h2 { margin: 0 0 14px; font-size: 24px; line-height: 1.08; font-weight: 950; }
       .error { background: var(--danger-bg); color: var(--bad); padding: 13px 14px; border-radius: 10px; border-left: 4px solid var(--bad); font-weight: 860; margin-top: 8px; font-size: 15px; line-height: 1.25; }
       .success { background: #ecfdf3; color: var(--ok); padding: 13px 14px; border-radius: 10px; border-left: 4px solid var(--ok); font-weight: 860; font-size: 15px; }
-      .screening-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
-      .screening-actions button { min-height: 42px; padding: 10px 12px; font-size: 13px; }
+      .screening-actions { margin: 12px 0; }
       .screening-result { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #f8fbfa; display: grid; gap: 8px; }
       .review-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
       .review-grid .screening-result { align-content: start; }
@@ -507,13 +556,18 @@ function renderAmlPage() {
                   <h2 data-i18n="sanctionsScreening">სანქციების სკრინინგი</h2>
                   <p id="sanctionsStatus" style="margin:0;color:var(--muted);font-weight:800;font-size:13px">UN სია ჯერ არ არის ჩატვირთული.</p>
                   <p id="sanctionsUpdatedAt" style="margin:0;color:var(--accent-ink);font-weight:900;font-size:13px">ჩვენი blacklist DB ჯერ არ განახლებულა.</p>
-                  <div class="screening-actions">
-                    <button type="button" id="syncSanctions" data-i18n="syncUnList">UN სიის განახლება</button>
-                    <button type="button" class="primary" id="screenClient" data-i18n="screenClient">კლიენტის შემოწმება</button>
+                  <div class="screening-actions screening-result">
+                    <span class="badge" data-i18n="automaticGate">ავტომატური AML gate</span>
+                    <p data-i18n="automaticGateHelp">პოლისის გაცემისას სისტემა ავტომატურად ამოწმებს კლიენტს სანქციებზე. დამთხვევის შემთხვევაში გაცემა იბლოკება AML approval-მდე.</p>
                   </div>
                   <div id="screeningResults" class="screening-result">
                     <span class="badge" data-i18n="readyToScreen">მზად არის შემოწმებისთვის</span>
                     <p data-i18n="screeningHelp">შემოწმება ადარებს სახელს, alias-ებს, დაბადების თარიღს, მოქალაქეობას, დოკუმენტს და მისამართს UN Security Council Consolidated List-თან.</p>
+                  </div>
+                  <div id="amlApprovalBox" class="screening-result" hidden>
+                    <span class="badge bad" data-i18n="policyBlocked">პოლისის გაცემა დაბლოკილია</span>
+                    <p data-i18n="amlApprovalHelp">დამთხვევა უნდა გადაამოწმოს AML ოფიცერმა. დამტკიცების გარეშე პოლისი არ გაიცემა.</p>
+                    <button type="button" class="primary" id="approveAml" data-i18n="approveAml">AML approval და პოლისის გაცემა</button>
                   </div>
                 </section>
                 <section class="screening-result">
@@ -568,7 +622,7 @@ function renderAmlPage() {
     </main>
     <script>
       const countriesCount = ${countries.length};
-      const state = { lang: "ka", documentStatus: "not_checked", submitted: false, step: 1, saved: false, screeningResult: null, sanctionsStatus: null };
+      const state = { lang: "ka", documentStatus: "not_checked", submitted: false, step: 1, saved: false, screeningResult: null, sanctionsStatus: null, amlApproved: false, registrationId: (crypto.randomUUID ? crypto.randomUUID() : "aml-" + Date.now() + "-" + Math.random().toString(16).slice(2)) };
       const copy = {
         ka: { eyebrow:"AML მოდული · ფიზიკური პირის რეგისტრაცია", title:"კლიენტის რეგისტრაციის ფორმა", subtitle:"მოქალაქეობა, იურიდიული მისამართი, რეესტრის სტატუსი და KYC ველები მზად არის ოპერატორის სამუშაო პროცესისთვის.", registryActive:"რეესტრიდან აქტიური სტატუსი", validateSave:"შემოწმება და შენახვა", firstName:"სახელი", lastName:"გვარი", personalId:"პირადი ნომერი", personalIdHelp:"საქართველოს მოქალაქისთვის ზუსტად 11 ციფრი", birthDate:"დაბადების თარიღი", citizenship:"მოქალაქეობა", secondCitizenship:"მეორე მოქალაქეობა", legalAddress:"იურიდიული მისამართი", actualAddress:"ფაქტიური მისამართი", documentType:"დოკუმენტის ტიპი", documentNumber:"დოკუმენტის ნომერი", documentStatus:"დოკუმენტის სტატუსი", readOnly:"ხელით არ რედაქტირდება", civilActive:"სამოქალაქო რეესტრი: აქტიური", civilInactive:"სამოქალაქო რეესტრი: არააქტიური", timeout:"Timeout", activityStatus:"საქმიანობის სტატუსი", employerName:"დამსაქმებელი ორგანიზაცია", position:"თანამდებობა", employerBusinessField:"დამსაქმებლის საქმიანობის სფერო", activatesOnEmployed:"აქტიურდება სტატუსზე: დასაქმებული", incomeSource:"შემოსავლის წყარო", expectedPremium:"მოსალოდნელი წლიური პრემია", implementation:"მოთხოვნების სტატუსი", legalDone:"იურიდიული მისამართი დამატებულია.", statusDone:"დოკუმენტის სტატუსი locked/read-only რეჟიმშია.", kycDone:"დასაქმებულზე დამსაქმებელი, თანამდებობა და სფერო სავალდებულოა.", todo:"შესავსებია", ready:"ფორმა მზად არის", liveValidation:"ცოცხალი ვალიდაცია", checkResult:"შემოწმების შედეგი", allDone:"ყველა სავალდებულო ველი შევსებულია.", countryCount:"Excel ფაილიდან დამატებულია " + countriesCount + " ქვეყანა.", choose:"აირჩიეთ", none:"არ აქვს", statuses:{not_checked:"არ არის გადამოწმებული", active:"აქტიური", inactive:"არ არის აქტიური", timeout:"რეესტრიდან პასუხი ვერ მივიღეთ"}, documentTypes:[["id_card","პირადობის მოწმობა"],["residence","ბინადრობის მოწმობა"],["temporary_residence","დროებითი ბინადრობის მოწმობა"],["passport","პასპორტი"]], activities:[["","აირჩიეთ"],["employed","დასაქმებული"],["business_owner","ბიზნესის მფლობელი"],["sole_proprietor","ინდ. მეწარმე"],["self_employed","თვითდასაქმებული"],["unemployed","უმუშევარი"],["student","სტუდენტი"],["retired","პენსიონერი"]], income:["","ხელფასი","დივიდენდი","იჯარა","პენსია","სხვა"], errors:["სახელი სავალდებულოა.","გვარი სავალდებულოა.","საქართველოს მოქალაქისთვის პირადი ნომერი უნდა იყოს ზუსტად 11 ციფრი.","იურიდიული მისამართი სავალდებულოა.","ფაქტიური მისამართი სავალდებულოა.","დოკუმენტის სტატუსი უნდა წამოვიდეს სამოქალაქო რეესტრიდან და იყოს აქტიური.","საქმიანობის სტატუსი სავალდებულოა.","დასაქმებულისთვის დამსაქმებელი ორგანიზაცია სავალდებულოა.","დასაქმებულისთვის თანამდებობა სავალდებულოა.","დასაქმებულისთვის საქმიანობის სფერო სავალდებულოა.","შემოსავლის წყარო სავალდებულოა.","მოსალოდნელი წლიური პრემია სავალდებულოა."] },
         en: { eyebrow:"AML module · Individual registration", title:"Client registration form", subtitle:"Citizenship, legal address, registry status, and KYC fields are ready for the employee workflow.", registryActive:"Mark active from registry", validateSave:"Validate and save", firstName:"First name", lastName:"Last name", personalId:"Personal ID", personalIdHelp:"Exactly 11 digits for Georgian citizens", birthDate:"Date of birth", citizenship:"Citizenship", secondCitizenship:"Second citizenship", legalAddress:"Legal address", actualAddress:"Actual address", documentType:"Document type", documentNumber:"Document number", documentStatus:"Document status", readOnly:"Not manually editable", civilActive:"Civil Registry: active", civilInactive:"Civil Registry: inactive", timeout:"Timeout", activityStatus:"Employment status", employerName:"Employer organization", position:"Position", employerBusinessField:"Employer business field", activatesOnEmployed:"Enabled when status is Employed", incomeSource:"Source of income", expectedPremium:"Expected annual premium", implementation:"Request status", legalDone:"Legal address field added.", statusDone:"Document status is locked/read-only.", kycDone:"Employer, position, and business field are required for Employed clients.", todo:"Needs input", ready:"Form is ready", liveValidation:"Live validation", checkResult:"Validation result", allDone:"All required fields are complete.", countryCount:countriesCount + " countries imported from Excel.", choose:"Choose", none:"None", statuses:{not_checked:"Not checked", active:"Active", inactive:"Inactive", timeout:"No registry response"}, documentTypes:[["id_card","ID card"],["residence","Residence card"],["temporary_residence","Temporary residence card"],["passport","Passport"]], activities:[["","Choose"],["employed","Employed"],["business_owner","Business owner"],["sole_proprietor","Sole proprietor"],["self_employed","Self-employed"],["unemployed","Unemployed"],["student","Student"],["retired","Retired"]], income:["","Salary","Dividend","Rent","Pension","Other"], errors:["First name is required.","Last name is required.","Personal ID must be exactly 11 digits for Georgian citizens.","Legal address is required.","Actual address is required.","Document status must come from the Civil Registry and be active.","Employment status is required.","Employer organization is required for Employed clients.","Position is required for Employed clients.","Employer business field is required for Employed clients.","Source of income is required.","Expected annual premium is required."] },
@@ -580,21 +634,21 @@ function renderAmlPage() {
           flowIndividual:"ფიზიკური პირი", flowIndividualSub:"რეგისტრაცია და KYC", flowLegal:"იურიდიული პირი", flowLegalSub:"კომპანია, დირექტორი, მისამართები", flowRisk:"რისკი", flowScreening:"სკრინინგი", flowScreeningSub:"საწყისი და პერიოდული", flowMessages:"შეტყობინებები", flowAudit:"აუდიტი", flowAuditSub:"ჟურნალი და რეპორტები",
           stepPersonal:"1. პირადი მონაცემები", stepPersonalSub:"ვინ არის კლიენტი", stepDocument:"2. დოკუმენტი", stepDocumentSub:"რეესტრი და სტატუსი", stepKyc:"3. KYC / რისკი", stepKycSub:"შემოსავალი და საქმიანობა", stepScreening:"4. სკრინინგი / ანგარიში", stepScreeningSub:"UN შემოწმება და ექსპორტი",
           personalSection:"ფიზიკური პირის მონაცემები", oldBaseline:"OLD AML baseline", gender:"სქესი", phone:"საკონტაქტო ტელეფონი", email:"ელ. ფოსტა", taxResidence:"საგადასახადო რეზიდენტობა", tin:"საგადასახადო ნომერი (TIN)", idScan:"პასპორტის/პირადობის ასლი", documentSection:"დოკუმენტი და სამოქალაქო რეესტრი", readonlyStatus:"სტატუსი read-only", kycSection:"KYC და რისკის საწყისი ფაქტორები", employeeFieldsActive:"დასაქმებულზე ველები აქტიურდება",
-          productType:"პროდუქტის ტიპი", businessSector:"საქმიანობის სფერო", annualIncome:"წლიური შემოსავალი", pepStatus:"PEP/RCA სტატუსი", pepDetails:"PEP დეტალები", kycDocs:"KYC დოკუმენტები", screenReportSection:"სკრინინგი და ანგარიში", screenReportSub:"შემოწმება, გადაწყვეტილება, ექსპორტი", riskScoring:"რისკის სქორინგი", sanctionsScreening:"სანქციების სკრინინგი", syncUnList:"UN სიის განახლება", screenClient:"კლიენტის შემოწმება", readyToScreen:"მზად არის შემოწმებისთვის", screeningHelp:"შემოწმება ადარებს სახელს, alias-ებს, დაბადების თარიღს, მოქალაქეობას, დოკუმენტს და მისამართს UN Security Council Consolidated List-თან.", report:"ანგარიში", downloadCsv:"CSV ჩამოტვირთვა", printPdf:"PDF / ბეჭდვა", oldFieldsDone:"ძველი AML დოკუმენტაციიდან დაბრუნებულია KYC, PEP/RCA და რისკის სქორინგის ძირითადი ველები.", unDone:"დამატებულია UN სანქციების ავტომატური განახლება და კლიენტის blacklist screening.", exportsDone:"დამატებულია CSV და PDF/ბეჭდვის ანგარიში.", back:"უკან", next:"შემდეგი",
-          validationFailed:"გთხოვთ შეავსოთ მონიშნული სავალდებულო ველები. გაგრძელება შეუძლებელია სანამ ფორმა სწორად არ შეივსება.", birthRequired:"დაბადების თარიღი სავალდებულოა.", under18:"ასაკი <18, რეგისტრაცია შეუძლებელია.", genderRequired:"სქესი სავალდებულოა.", phoneError:"ტელეფონი უნდა იყოს E.164 ფორმატში, მაგალითად +995555123456.", emailError:"ელ. ფოსტა არასწორია.", productRequired:"საქმიანი ურთიერთობის მიზანი / პროდუქტის ტიპი სავალდებულოა.", sectorRequired:"საქმიანობის სფერო სავალდებულოა.", pepDetailsRequired:"PEP/RCA სტატუსის შემთხვევაში დეტალები სავალდებულოა.", noRisk:"რისკ-ფაქტორი ჯერ არ დაფიქსირებულა.", formReady:"ფორმა სწორად არის შევსებული. ახლა შეგიძლიათ ჩამოტვირთოთ CSV ან PDF/ბეჭდვის ანგარიში.", reportIntro:"ანგარიში მოიცავს კლიენტის მონაცემებს, დოკუმენტის სტატუსს, KYC-ს, რისკს", screeningNotRun:"UN სკრინინგი ჯერ არ გაშვებულა.", screeningClear:"UN სიაში მნიშვნელოვანი დამთხვევა არ არის.", screeningReview:"UN სკრინინგმა მოითხოვა AML ოფიცრის გადამოწმება.", unListNotLoaded:"UN სია ჯერ არ არის ჩატვირთული.", ourDbNotUpdated:"ჩვენი blacklist DB ჯერ არ განახლებულა.", unLoading:"UN სია იტვირთება...", unStatusFailed:"UN სიის სტატუსი ვერ ჩაიტვირთა.", checking:"მოწმდება...", blacklistRunning:"UN blacklist screening მიმდინარეობს.", noUnMatch:"UN სიაში მნიშვნელოვანი დამთხვევა არ მოიძებნა.", checkedRecords:"შემოწმდა", records:"UN ჩანაწერი", source:"წყარო", lastDbUpdate:"ჩვენი blacklist DB ბოლო განახლება", sourceDate:"UN წყაროს თარიღი", noDate:"ჯერ არ არის", strongMatch:"ძლიერი დამთხვევა", possibleMatch:"შესაძლო დამთხვევა", clear:"სუფთა", low:"დაბალი", medium:"საშუალო", high:"მაღალი", oldFramework:"OLD AML სისტემის სრული ჩარჩო", oldFrameworkSub:"არ არის წაშლილი - ახალი მოთხოვნები ემატება ამ ბაზას",
+          productType:"Line of business / სადაზღვევო პროდუქტი", businessSector:"კლიენტის საქმიანობის სფერო", annualIncome:"წლიური შემოსავალი", pepStatus:"PEP/RCA სტატუსი", pepDetails:"PEP დეტალები", kycDocs:"KYC დოკუმენტები", screenReportSection:"სკრინინგი და ანგარიში", screenReportSub:"ავტომატური შემოწმება, გადაწყვეტილება, ექსპორტი", riskScoring:"რისკის სქორინგი", sanctionsScreening:"სანქციების სკრინინგი", syncUnList:"UN სიის განახლება", screenClient:"კლიენტის შემოწმება", readyToScreen:"პოლისის გაცემამდე ავტომატურად შემოწმდება", automaticGate:"ავტომატური AML gate", automaticGateHelp:"პოლისის გაცემისას სისტემა ავტომატურად ამოწმებს კლიენტს სანქციებზე. დამთხვევის შემთხვევაში გაცემა იბლოკება AML approval-მდე.", policyBlocked:"პოლისის გაცემა დაბლოკილია", amlApprovalHelp:"დამთხვევა უნდა გადაამოწმოს AML ოფიცერმა. დამტკიცების გარეშე პოლისი არ გაიცემა.", approveAml:"AML approval და პოლისის გაცემა", screeningHelp:"შემოწმება ადარებს სახელს, alias-ებს, დაბადების თარიღს, მოქალაქეობას, დოკუმენტს და მისამართს UN Security Council Consolidated List-თან.", report:"ანგარიში", downloadCsv:"CSV ჩამოტვირთვა", printPdf:"PDF / ბეჭდვა", oldFieldsDone:"ძველი AML დოკუმენტაციიდან დაბრუნებულია KYC, PEP/RCA და რისკის სქორინგის ძირითადი ველები.", unDone:"UN sanctions screening ახლა ავტომატურად ეშვება პოლისის გაცემისას.", exportsDone:"დამატებულია CSV და PDF/ბეჭდვის ანგარიში.", back:"უკან", next:"შემდეგი",
+          validationFailed:"გთხოვთ შეავსოთ მონიშნული სავალდებულო ველები. გაგრძელება შეუძლებელია სანამ ფორმა სწორად არ შეივსება.", birthRequired:"დაბადების თარიღი სავალდებულოა.", under18:"ასაკი <18, რეგისტრაცია შეუძლებელია.", genderRequired:"სქესი სავალდებულოა.", phoneError:"ტელეფონი უნდა იყოს E.164 ფორმატში, მაგალითად +995555123456.", emailError:"ელ. ფოსტა არასწორია.", productRequired:"Line of business / სადაზღვევო პროდუქტი სავალდებულოა.", sectorRequired:"კლიენტის საქმიანობის სფერო სავალდებულოა.", pepDetailsRequired:"PEP/RCA სტატუსის შემთხვევაში დეტალები სავალდებულოა.", noRisk:"რისკ-ფაქტორი ჯერ არ დაფიქსირებულა.", formReady:"AML gate გავლილია. პოლისის გაცემა დაშვებულია და ჩანაწერი შენახულია.", reportIntro:"ანგარიში მოიცავს კლიენტის მონაცემებს, დოკუმენტის სტატუსს, KYC-ს, რისკს", screeningNotRun:"UN სკრინინგი ჯერ არ გაშვებულა.", screeningClear:"UN სიაში მნიშვნელოვანი დამთხვევა არ არის.", screeningReview:"UN სკრინინგმა მოითხოვა AML ოფიცრის გადამოწმება.", unListNotLoaded:"UN სია ჯერ არ არის ჩატვირთული.", ourDbNotUpdated:"ჩვენი blacklist DB ჯერ არ განახლებულა.", unLoading:"UN სია იტვირთება...", unStatusFailed:"UN სიის სტატუსი ვერ ჩაიტვირთა.", checking:"მოწმდება...", blacklistRunning:"UN blacklist screening ავტომატურად მიმდინარეობს.", duplicatePersonalId:"ამ პირადი ნომრით კლიენტი უკვე არსებობს. პოლისის გაცემა დაბლოკილია.", screeningBlocked:"სანქციების დამთხვევა დაფიქსირდა. პოლისი არ გაიცემა AML approval-მდე.", reportBlocked:"ანგარიში ხელმისაწვდომია მხოლოდ AML gate-ის დასრულების შემდეგ.", noUnMatch:"UN სიაში მნიშვნელოვანი დამთხვევა არ მოიძებნა.", checkedRecords:"შემოწმდა", records:"UN ჩანაწერი", source:"წყარო", lastDbUpdate:"ჩვენი blacklist DB ბოლო განახლება", sourceDate:"UN წყაროს თარიღი", noDate:"ჯერ არ არის", strongMatch:"ძლიერი დამთხვევა", possibleMatch:"შესაძლო დამთხვევა", clear:"სუფთა", low:"დაბალი", medium:"საშუალო", high:"მაღალი", oldFramework:"OLD AML სისტემის სრული ჩარჩო", oldFrameworkSub:"არ არის წაშლილი - ახალი მოთხოვნები ემატება ამ ბაზას",
           genders:[["","აირჩიეთ"],["male","მამრობითი"],["female","მდედრობითი"]], products:[["","აირჩიეთ"],["auto-tpl","ავტო TPL"],["health","ჯანმრთელობა"],["property","ქონება"],["car-ear","CAR/EAR"],["cargo","ტვირთი"],["life-investment","სიცოცხლე / საინვესტიციო"]], sectors:[["","აირჩიეთ"],["low-risk","დაბალი რისკის სფერო"],["ordinary","ჩვეულებრივი ბიზნესი"],["cash-intensive","ნაღდზე ინტენსიური"],["crypto","კრიპტო"],["gambling","აზარტული თამაშები"],["weapons","იარაღი"],["precious-metals","ძვირფასი მეტალები"]], annualIncome:[["","აირჩიეთ"],["< 50,000 GEL","< 50,000 GEL"],["50,000 - 100,000 GEL","50,000 - 100,000 GEL"],["100,000 - 500,000 GEL","100,000 - 500,000 GEL"],["> 500,000 GEL","> 500,000 GEL"]], peps:[["No","არა"],["Local PEP","ადგილობრივი PEP"],["Foreign PEP","უცხო ქვეყნის PEP"],["International PEP","საერთაშორისო ორგანიზაციის PEP"],["RCA","RCA"]]
         },
         en: {
           flowIndividual:"Individual", flowIndividualSub:"Registration and KYC", flowLegal:"Legal entity", flowLegalSub:"Company, director, addresses", flowRisk:"Risk", flowScreening:"Screening", flowScreeningSub:"Initial and periodic", flowMessages:"Messages", flowAudit:"Audit", flowAuditSub:"Journal and reports",
           stepPersonal:"1. Personal data", stepPersonalSub:"Who the client is", stepDocument:"2. Document", stepDocumentSub:"Registry and status", stepKyc:"3. KYC / Risk", stepKycSub:"Income and activity", stepScreening:"4. Screening / Report", stepScreeningSub:"UN check and export",
           personalSection:"Individual personal data", oldBaseline:"OLD AML baseline", gender:"Gender", phone:"Contact phone", email:"Email", taxResidence:"Tax residence", tin:"Tax Identification Number (TIN)", idScan:"Passport/ID copy", documentSection:"Document and Civil Registry", readonlyStatus:"Read-only status", kycSection:"KYC and initial risk factors", employeeFieldsActive:"Fields activate for employed clients",
-          productType:"Product type", businessSector:"Business sector", annualIncome:"Annual income", pepStatus:"PEP/RCA status", pepDetails:"PEP details", kycDocs:"KYC documents", screenReportSection:"Screening and report", screenReportSub:"Check, decision, export", riskScoring:"Risk scoring", sanctionsScreening:"Sanctions screening", syncUnList:"Update UN list", screenClient:"Check client", readyToScreen:"Ready for screening", screeningHelp:"The check compares name, aliases, date of birth, citizenship, document, and address with the UN Security Council Consolidated List.", report:"Report", downloadCsv:"Download CSV", printPdf:"PDF / Print", oldFieldsDone:"Core KYC, PEP/RCA, and risk scoring fields were restored from the old AML documentation.", unDone:"Automatic UN sanctions update and client blacklist screening were added.", exportsDone:"CSV and PDF/print report were added.", back:"Back", next:"Next",
-          validationFailed:"Please fill the highlighted required fields. You cannot continue until this step is completed correctly.", birthRequired:"Date of birth is required.", under18:"Age is under 18, registration is not allowed.", genderRequired:"Gender is mandatory.", phoneError:"Phone must be in E.164 format, for example +995555123456.", emailError:"Email address is invalid.", productRequired:"Business relationship purpose / product type is required.", sectorRequired:"Business sector is required.", pepDetailsRequired:"PEP/RCA details are required when status is not No.", noRisk:"No risk factor has been detected yet.", formReady:"The form is valid. You can now download CSV or PDF/print report.", reportIntro:"The report includes client data, document status, KYC, risk", screeningNotRun:"UN screening has not been run yet.", screeningClear:"No significant match was found in the UN list.", screeningReview:"UN screening requires AML officer review.", unListNotLoaded:"UN list has not been loaded yet.", ourDbNotUpdated:"Our blacklist DB has not been updated yet.", unLoading:"UN list is loading...", unStatusFailed:"UN list status could not be loaded.", checking:"Checking...", blacklistRunning:"UN blacklist screening is running.", noUnMatch:"No significant match was found in the UN list.", checkedRecords:"Checked", records:"UN records", source:"Source", lastDbUpdate:"Our blacklist DB last update", sourceDate:"UN source date", noDate:"Not yet", strongMatch:"Strong match", possibleMatch:"Possible match", clear:"Clear", low:"Low", medium:"Medium", high:"High", oldFramework:"Complete OLD AML system framework", oldFrameworkSub:"Not deleted - new requirements are added to this baseline",
+          productType:"Line of business / insurance product", businessSector:"Client activity sector", annualIncome:"Annual income", pepStatus:"PEP/RCA status", pepDetails:"PEP details", kycDocs:"KYC documents", screenReportSection:"Screening and report", screenReportSub:"Automatic check, decision, export", riskScoring:"Risk scoring", sanctionsScreening:"Sanctions screening", syncUnList:"Update UN list", screenClient:"Check client", readyToScreen:"Will screen automatically before policy issuance", automaticGate:"Automatic AML gate", automaticGateHelp:"During policy issuance, the system automatically screens the client against sanctions. If there is a match, issuance is blocked until AML approval is granted.", policyBlocked:"Policy issuance is blocked", amlApprovalHelp:"The match must be reviewed by an AML officer. Without approval, the policy cannot be issued.", approveAml:"Approve AML and issue policy", screeningHelp:"The check compares name, aliases, date of birth, citizenship, document, and address with the UN Security Council Consolidated List.", report:"Report", downloadCsv:"Download CSV", printPdf:"PDF / Print", oldFieldsDone:"Core KYC, PEP/RCA, and risk scoring fields were restored from the old AML documentation.", unDone:"UN sanctions screening now runs automatically during policy issuance.", exportsDone:"CSV and PDF/print report were added.", back:"Back", next:"Next",
+          validationFailed:"Please fill the highlighted required fields. You cannot continue until this step is completed correctly.", birthRequired:"Date of birth is required.", under18:"Age is under 18, registration is not allowed.", genderRequired:"Gender is mandatory.", phoneError:"Phone must be in E.164 format, for example +995555123456.", emailError:"Email address is invalid.", productRequired:"Line of business / insurance product is required.", sectorRequired:"Client activity sector is required.", pepDetailsRequired:"PEP/RCA details are required when status is not No.", noRisk:"No risk factor has been detected yet.", formReady:"AML gate passed. Policy issuance is allowed and the record is saved.", reportIntro:"The report includes client data, document status, KYC, risk", screeningNotRun:"UN screening has not been run yet.", screeningClear:"No significant match was found in the UN list.", screeningReview:"UN screening requires AML officer review.", unListNotLoaded:"UN list has not been loaded yet.", ourDbNotUpdated:"Our blacklist DB has not been updated yet.", unLoading:"UN list is loading...", unStatusFailed:"UN list status could not be loaded.", checking:"Checking...", blacklistRunning:"UN blacklist screening is running automatically.", duplicatePersonalId:"A client with this personal ID already exists. Policy issuance is blocked.", screeningBlocked:"A sanctions match was detected. The policy cannot be issued until AML approval is granted.", reportBlocked:"The report is available after the AML gate is completed.", noUnMatch:"No significant match was found in the UN list.", checkedRecords:"Checked", records:"UN records", source:"Source", lastDbUpdate:"Our blacklist DB last update", sourceDate:"UN source date", noDate:"Not yet", strongMatch:"Strong match", possibleMatch:"Possible match", clear:"Clear", low:"Low", medium:"Medium", high:"High", oldFramework:"Complete OLD AML system framework", oldFrameworkSub:"Not deleted - new requirements are added to this baseline",
           genders:[["","Choose"],["male","Male"],["female","Female"]], products:[["","Choose"],["auto-tpl","Auto TPL"],["health","Health"],["property","Property"],["car-ear","CAR/EAR"],["cargo","Cargo"],["life-investment","Life / investment"]], sectors:[["","Choose"],["low-risk","Low-risk sector"],["ordinary","Ordinary business"],["cash-intensive","Cash-intensive"],["crypto","Crypto"],["gambling","Gambling"],["weapons","Weapons"],["precious-metals","Precious metals"]], annualIncome:[["","Choose"],["< 50,000 GEL","< 50,000 GEL"],["50,000 - 100,000 GEL","50,000 - 100,000 GEL"],["100,000 - 500,000 GEL","100,000 - 500,000 GEL"],["> 500,000 GEL","> 500,000 GEL"]], peps:[["No","No"],["Local PEP","Local PEP"],["Foreign PEP","Foreign PEP"],["International PEP","International organization PEP"],["RCA","RCA"]]
         }
       };
-      ui.ru = { ...ui.en, flowIndividual:"Физическое лицо", flowIndividualSub:"Регистрация и KYC", flowLegal:"Юридическое лицо", flowLegalSub:"Компания, директор, адреса", flowRisk:"Риск", flowScreening:"Скрининг", flowScreeningSub:"Первичный и периодический", flowMessages:"Сообщения", flowAudit:"Аудит", flowAuditSub:"Журнал и отчеты", stepPersonal:"1. Личные данные", stepPersonalSub:"Кто является клиентом", stepDocument:"2. Документ", stepDocumentSub:"Реестр и статус", stepKyc:"3. KYC / Риск", stepKycSub:"Доход и деятельность", stepScreening:"4. Скрининг / Отчет", stepScreeningSub:"Проверка UN и экспорт", personalSection:"Данные физического лица", gender:"Пол", phone:"Контактный телефон", email:"Эл. почта", productType:"Тип продукта", businessSector:"Сфера деятельности", annualIncome:"Годовой доход", sanctionsScreening:"Санкционный скрининг", syncUnList:"Обновить список UN", screenClient:"Проверить клиента", report:"Отчет", downloadCsv:"Скачать CSV", printPdf:"PDF / Печать", back:"Назад", next:"Далее", readyToScreen:"Готово к проверке", ourDbNotUpdated:"Наша blacklist DB еще не обновлялась.", lastDbUpdate:"Последнее обновление нашей blacklist DB", noDate:"Еще нет", genders:[["","Выберите"],["male","Мужской"],["female","Женский"]], products:[["","Выберите"],["auto-tpl","Авто TPL"],["health","Здоровье"],["property","Имущество"],["car-ear","CAR/EAR"],["cargo","Груз"],["life-investment","Жизнь / инвестиционный"]], sectors:[["","Выберите"],["low-risk","Низкий риск"],["ordinary","Обычный бизнес"],["cash-intensive","Наличный бизнес"],["crypto","Крипто"],["gambling","Азартные игры"],["weapons","Оружие"],["precious-metals","Драгоценные металлы"]], peps:[["No","Нет"],["Local PEP","Местный PEP"],["Foreign PEP","Иностранный PEP"],["International PEP","PEP международной организации"],["RCA","RCA"]] };
-      ui.tr = { ...ui.en, flowIndividual:"Bireysel", flowIndividualSub:"Kayıt ve KYC", flowLegal:"Tüzel kişi", flowLegalSub:"Şirket, direktör, adresler", flowRisk:"Risk", flowScreening:"Tarama", flowScreeningSub:"İlk ve periyodik", flowMessages:"Mesajlar", flowAudit:"Denetim", flowAuditSub:"Kayıt ve raporlar", stepPersonal:"1. Kişisel bilgiler", stepPersonalSub:"Müşteri kimdir", stepDocument:"2. Belge", stepDocumentSub:"Sicil ve durum", stepKyc:"3. KYC / Risk", stepKycSub:"Gelir ve faaliyet", stepScreening:"4. Tarama / Rapor", stepScreeningSub:"UN kontrolü ve dışa aktarım", personalSection:"Bireysel müşteri bilgileri", gender:"Cinsiyet", phone:"İletişim telefonu", email:"E-posta", productType:"Ürün tipi", businessSector:"Faaliyet alanı", annualIncome:"Yıllık gelir", sanctionsScreening:"Yaptırım taraması", syncUnList:"UN listesini güncelle", screenClient:"Müşteriyi kontrol et", report:"Rapor", downloadCsv:"CSV indir", printPdf:"PDF / Yazdır", back:"Geri", next:"İleri", readyToScreen:"Taramaya hazır", ourDbNotUpdated:"Blacklist DB henüz güncellenmedi.", lastDbUpdate:"Blacklist DB son güncelleme", noDate:"Henüz yok", genders:[["","Seçin"],["male","Erkek"],["female","Kadın"]], products:[["","Seçin"],["auto-tpl","Auto TPL"],["health","Sağlık"],["property","Mülk"],["car-ear","CAR/EAR"],["cargo","Kargo"],["life-investment","Hayat / yatırım"]], sectors:[["","Seçin"],["low-risk","Düşük risk alanı"],["ordinary","Normal iş"],["cash-intensive","Nakit yoğun"],["crypto","Kripto"],["gambling","Kumar"],["weapons","Silah"],["precious-metals","Değerli metaller"]], peps:[["No","Hayır"],["Local PEP","Yerel PEP"],["Foreign PEP","Yabancı PEP"],["International PEP","Uluslararası organizasyon PEP"],["RCA","RCA"]] };
+      ui.ru = { ...ui.en, flowIndividual:"Физическое лицо", flowIndividualSub:"Регистрация и KYC", flowLegal:"Юридическое лицо", flowLegalSub:"Компания, директор, адреса", flowRisk:"Риск", flowScreening:"Скрининг", flowScreeningSub:"Первичный и периодический", flowMessages:"Сообщения", flowAudit:"Аудит", flowAuditSub:"Журнал и отчеты", stepPersonal:"1. Личные данные", stepPersonalSub:"Кто является клиентом", stepDocument:"2. Документ", stepDocumentSub:"Реестр и статус", stepKyc:"3. KYC / Риск", stepKycSub:"Доход и деятельность", stepScreening:"4. Скрининг / Отчет", stepScreeningSub:"Проверка UN и экспорт", personalSection:"Данные физического лица", gender:"Пол", phone:"Контактный телефон", email:"Эл. почта", productType:"Line of business / страховой продукт", businessSector:"Сфера деятельности клиента", annualIncome:"Годовой доход", sanctionsScreening:"Санкционный скрининг", syncUnList:"Обновить список UN", screenClient:"Проверить клиента", report:"Отчет", downloadCsv:"Скачать CSV", printPdf:"PDF / Печать", back:"Назад", next:"Далее", readyToScreen:"Готово к проверке", ourDbNotUpdated:"Наша blacklist DB еще не обновлялась.", lastDbUpdate:"Последнее обновление нашей blacklist DB", noDate:"Еще нет", genders:[["","Выберите"],["male","Мужской"],["female","Женский"]], products:[["","Выберите"],["auto-tpl","Авто TPL"],["health","Здоровье"],["property","Имущество"],["car-ear","CAR/EAR"],["cargo","Груз"],["life-investment","Жизнь / инвестиционный"]], sectors:[["","Выберите"],["low-risk","Низкий риск"],["ordinary","Обычный бизнес"],["cash-intensive","Наличный бизнес"],["crypto","Крипто"],["gambling","Азартные игры"],["weapons","Оружие"],["precious-metals","Драгоценные металлы"]], peps:[["No","Нет"],["Local PEP","Местный PEP"],["Foreign PEP","Иностранный PEP"],["International PEP","PEP международной организации"],["RCA","RCA"]] };
+      ui.tr = { ...ui.en, flowIndividual:"Bireysel", flowIndividualSub:"Kayıt ve KYC", flowLegal:"Tüzel kişi", flowLegalSub:"Şirket, direktör, adresler", flowRisk:"Risk", flowScreening:"Tarama", flowScreeningSub:"İlk ve periyodik", flowMessages:"Mesajlar", flowAudit:"Denetim", flowAuditSub:"Kayıt ve raporlar", stepPersonal:"1. Kişisel bilgiler", stepPersonalSub:"Müşteri kimdir", stepDocument:"2. Belge", stepDocumentSub:"Sicil ve durum", stepKyc:"3. KYC / Risk", stepKycSub:"Gelir ve faaliyet", stepScreening:"4. Tarama / Rapor", stepScreeningSub:"UN kontrolü ve dışa aktarım", personalSection:"Bireysel müşteri bilgileri", gender:"Cinsiyet", phone:"İletişim telefonu", email:"E-posta", productType:"Line of business / sigorta ürünü", businessSector:"Müşteri faaliyet sektörü", annualIncome:"Yıllık gelir", sanctionsScreening:"Yaptırım taraması", syncUnList:"UN listesini güncelle", screenClient:"Müşteriyi kontrol et", report:"Rapor", downloadCsv:"CSV indir", printPdf:"PDF / Yazdır", back:"Geri", next:"İleri", readyToScreen:"Taramaya hazır", ourDbNotUpdated:"Blacklist DB henüz güncellenmedi.", lastDbUpdate:"Blacklist DB son güncelleme", noDate:"Henüz yok", genders:[["","Seçin"],["male","Erkek"],["female","Kadın"]], products:[["","Seçin"],["auto-tpl","Auto TPL"],["health","Sağlık"],["property","Mülk"],["car-ear","CAR/EAR"],["cargo","Kargo"],["life-investment","Hayat / yatırım"]], sectors:[["","Seçin"],["low-risk","Düşük risk alanı"],["ordinary","Normal iş"],["cash-intensive","Nakit yoğun"],["crypto","Kripto"],["gambling","Kumar"],["weapons","Silah"],["precious-metals","Değerli metaller"]], peps:[["No","Hayır"],["Local PEP","Yerel PEP"],["Foreign PEP","Yabancı PEP"],["International PEP","Uluslararası organizasyon PEP"],["RCA","RCA"]] };
       const highRiskCountries = ["რუსეთის ფედერაცია", "ირანი (ისლამური რესპუბლიკა)", "სირიის არაბთა რესპუბლიკა", "კორეის სახალხო დემოკრატიული რესპუბლიკა"];
       const ids = ["firstName","lastName","personalId","birthDate","gender","citizenship","legalAddress","actualAddress","phone","email","taxResidence","tin","activityStatus","employerName","position","employerBusinessField","incomeSource","expectedPremium","productType","businessSector","annualIncome","pepStatus","pepDetails"];
       const fieldStep = {
@@ -752,6 +806,7 @@ function renderAmlPage() {
         state.screeningResult = result;
         const statusLabel = result.status === "strong_match" ? t("strongMatch") : result.status === "possible_match" ? t("possibleMatch") : t("clear");
         const badgeClass = result.status === "strong_match" ? "bad" : result.status === "possible_match" ? "warn" : "";
+        const blocked = result.status === "strong_match" || result.status === "possible_match";
         const matches = result.matches.length ? result.matches.map((match) => (
           '<div class="screening-result">' +
           '<strong>' + escapeUi(match.record.fullName || match.matchedName) + ' · ' + match.score + '</strong>' +
@@ -762,7 +817,16 @@ function renderAmlPage() {
         )).join("") : '<p>' + t("noUnMatch") + '</p>';
         el("screeningResults").innerHTML = '<span class="badge ' + badgeClass + '">' + statusLabel + ' · ' + result.score + '</span>' +
           '<p>' + t("checkedRecords") + ' ' + result.recordsChecked + ' ' + t("records") + '. ' + t("source") + ': ' + escapeUi(result.sourceName) + '.</p>' + matches;
+        el("amlApprovalBox").hidden = !blocked || state.amlApproved;
         updateReportSummary();
+      }
+      function showNotice(message, kind = "bad") {
+        const notice = el("formNotice");
+        notice.hidden = false;
+        notice.style.borderLeftColor = kind === "ok" ? "var(--ok)" : "var(--bad)";
+        notice.style.color = kind === "ok" ? "var(--ok)" : "var(--bad)";
+        notice.style.background = kind === "ok" ? "#ecfdf3" : "var(--danger-bg)";
+        notice.textContent = message;
       }
       function reportRows() {
         const risk = scoreClient();
@@ -797,6 +861,8 @@ function renderAmlPage() {
           ["PEP დეტალები", el("pepDetails").value],
           ["რისკი", risk.level + " / " + risk.score + " / " + risk.due],
           ["სანქციების სკრინინგი", screeningStatus],
+          ["AML approval", state.amlApproved ? "Approved" : "Not approved"],
+          ["პოლისის სტატუსი", state.saved ? "გაცემა დაშვებულია" : "დაბლოკილია / არ არის დასრულებული"],
           ["ანგარიშის დრო", new Date().toLocaleString()],
         ];
       }
@@ -815,6 +881,11 @@ function renderAmlPage() {
         if (fieldErrors.length) {
           goToStep(fieldStep[fieldErrors[0].id] || 1);
           focusFirstError(errorsForStep(state.step));
+          return false;
+        }
+        if (!state.saved) {
+          goToStep(4);
+          showNotice(t("reportBlocked"), "bad");
           return false;
         }
         return true;
@@ -868,6 +939,46 @@ function renderAmlPage() {
         if (!data.ok) throw new Error(data.error || "Screening failed");
         renderScreening(data.result);
         loadSanctionsStatus();
+        return data.result;
+      }
+      async function registerClientForIssuance() {
+        const client = collectClientForScreening();
+        const response = await fetch("/api/clients/register", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ...client, registrationId: state.registrationId }),
+        });
+        const data = await response.json();
+        if (!data.ok) throw new Error(data.duplicate ? t("duplicatePersonalId") : data.error || t("duplicatePersonalId"));
+        return data;
+      }
+      async function attemptPolicyIssuance() {
+        state.submitted = true;
+        const fieldErrors = validate();
+        if (fieldErrors.length) {
+          goToStep(fieldStep[fieldErrors[0].id] || 1);
+          focusFirstError(errorsForStep(state.step));
+          return;
+        }
+        goToStep(4);
+        showNotice(t("blacklistRunning"), "bad");
+        try {
+          await registerClientForIssuance();
+          const result = await screenClient();
+          const blocked = result.status === "strong_match" || result.status === "possible_match";
+          if (blocked && !state.amlApproved) {
+            state.saved = false;
+            showNotice(t("screeningBlocked"), "bad");
+            el("amlApprovalBox").hidden = false;
+            return;
+          }
+          state.saved = true;
+          el("amlApprovalBox").hidden = true;
+          showNotice(t("formReady"), "ok");
+        } catch (error) {
+          state.saved = false;
+          showNotice(error.message, "bad");
+        }
       }
       function renderLang() {
         const c = copy[state.lang];
@@ -901,7 +1012,7 @@ function renderAmlPage() {
         document.querySelectorAll(".employed-only").forEach((item) => item.style.display = enabled ? "" : "none");
         validate();
       }
-      document.addEventListener("click", (event) => {
+      document.addEventListener("click", async (event) => {
         const lang = event.target.closest("[data-lang]");
         if (lang) {
           state.lang = lang.dataset.lang;
@@ -922,8 +1033,7 @@ function renderAmlPage() {
         }
         const registry = event.target.closest("[data-registry]");
         if (registry) { state.documentStatus = registry.dataset.registry; if (!el("documentNumber").value) el("documentNumber").value = "AA1234567"; renderLang(); return; }
-        if (event.target.id === "syncSanctions") { syncSanctions().catch((error) => { el("screeningResults").innerHTML = '<span class="badge bad">შეცდომა</span><p>' + escapeUi(error.message) + '</p>'; }); return; }
-        if (event.target.id === "screenClient") { screenClient().catch((error) => { el("screeningResults").innerHTML = '<span class="badge bad">შეცდომა</span><p>' + escapeUi(error.message) + '</p>'; }); return; }
+        if (event.target.id === "approveAml") { state.amlApproved = true; await attemptPolicyIssuance(); return; }
         if (event.target.id === "prevStep") { goToStep(state.step - 1); return; }
         if (event.target.id === "nextStep") {
           state.submitted = true;
@@ -935,24 +1045,19 @@ function renderAmlPage() {
         if (event.target.id === "downloadCsv") { downloadCsv(); return; }
         if (event.target.id === "printReport") { printReport(); return; }
         if (event.target.id === "submitCheck" || event.target.id === "finalSubmit") {
-          state.submitted = true;
-          const fieldErrors = validate();
-          if (fieldErrors.length) {
-            goToStep(fieldStep[fieldErrors[0].id] || 1);
-            focusFirstError(errorsForStep(state.step));
-            return;
-          }
-          state.saved = true;
-          goToStep(4);
-          el("formNotice").hidden = false;
-          el("formNotice").style.borderLeftColor = "var(--ok)";
-          el("formNotice").style.color = "var(--ok)";
-          el("formNotice").style.background = "#ecfdf3";
-          el("formNotice").textContent = t("formReady");
+          await attemptPolicyIssuance();
         }
       });
-      document.addEventListener("input", validate);
-      document.addEventListener("change", validate);
+      function markDirty(event) {
+        if (ids.includes(event.target.id) || event.target.id === "documentNumber") {
+          state.saved = false;
+          state.amlApproved = false;
+          el("amlApprovalBox").hidden = true;
+        }
+        validate();
+      }
+      document.addEventListener("input", markDirty);
+      document.addEventListener("change", markDirty);
       el("activityStatus").addEventListener("change", updateKyc);
       el("personalId").addEventListener("input", (event) => { event.target.value = event.target.value.replace(/\\D/g, ""); });
       renderLang();
@@ -997,6 +1102,20 @@ async function serveFile(req, res) {
       const client = await readRequestJson(req);
       await syncSanctionsList(false);
       sendJson(res, 200, { ok: true, result: screenClientAgainstSanctions(client) });
+    } catch (error) {
+      sendJson(res, 400, { ok: false, error: error.message });
+    }
+    return;
+  }
+  if (url.pathname === "/api/clients/register") {
+    if (req.method !== "POST") {
+      sendJson(res, 405, { ok: false, error: "POST required" });
+      return;
+    }
+    try {
+      const client = await readRequestJson(req);
+      const result = registerClientForIssuance(client);
+      sendJson(res, result.ok ? 200 : result.duplicate ? 409 : 400, result);
     } catch (error) {
       sendJson(res, 400, { ok: false, error: error.message });
     }
